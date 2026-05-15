@@ -1,4 +1,4 @@
-FROM oven/bun:latest as build
+FROM oven/bun:latest AS build
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ COPY . .
 RUN bun run build
 
 # Serve with a simple static server or use Nginx
-FROM oven/bun:latest as run
+FROM oven/bun:latest AS run
 
 WORKDIR /app
 

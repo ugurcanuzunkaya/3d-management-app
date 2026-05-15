@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Clock, Library, Box, Settings } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Library, Box, Settings, Activity } from 'lucide-react';
 
 const Navbar = () => {
   return (
@@ -14,9 +14,9 @@ const Navbar = () => {
             <LayoutDashboard className="w-4 h-4" />
             <span>Dashboard</span>
           </Link>
-          <Link to="/pending" className="flex items-center gap-1 hover:text-primary transition-colors">
-            <Clock className="w-4 h-4" />
-            <span>Pending</span>
+          <Link to="/jobs" className="flex items-center gap-1 hover:text-primary transition-colors">
+            <ClipboardList className="w-4 h-4" />
+            <span>Jobs</span>
           </Link>
           <Link to="/stock" className="flex items-center gap-1 hover:text-primary transition-colors">
             <Box className="w-4 h-4" />
@@ -25,6 +25,10 @@ const Navbar = () => {
           <Link to="/models" className="flex items-center gap-1 hover:text-primary transition-colors">
             <Library className="w-4 h-4" />
             <span>Models</span>
+          </Link>
+          <Link to="/printer" className="flex items-center gap-1 hover:text-primary transition-colors">
+            <Activity className="w-4 h-4" />
+            <span>Printer</span>
           </Link>
           <Link to="/settings" className="flex items-center gap-1 hover:text-primary transition-colors">
             <Settings className="w-4 h-4" />

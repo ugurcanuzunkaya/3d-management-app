@@ -5,27 +5,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Save } from 'lucide-react';
 import api from '@/lib/api';
-import { useState, useEffect } from 'react';
+import type { Settings } from '@/types';
+import { useState } from 'react';
 
-const SettingsPage = () => {
+const SettingsForm = ({ initialSettings }: { initialSettings: Settings }) => {
   const queryClient = useQueryClient();
-  const [electricPrice, setElectricPrice] = useState('0');
-  const [fallbackWattage, setFallbackWattage] = useState('0');
-
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.get('/api/settings').then(res => res.data)
-  });
-
-  useEffect(() => {
-    if (settings) {
-      setElectricPrice(settings.electric_price.toString());
-      setFallbackWattage(settings.fallback_wattage.toString());
-    }
-  }, [settings]);
+  const [electricPrice, setElectricPrice] = useState(initialSettings.electric_price.toString());
+  const [fallbackWattage, setFallbackWattage] = useState(initialSettings.fallback_wattage.toString());
 
   const mutation = useMutation({
-    mutationFn: (newSettings: any) => api.post('/api/settings', newSettings),
+    mutationFn: (newSettings: Settings) => api.post('/api/settings', newSettings),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     }
@@ -41,7 +30,7 @@ const SettingsPage = () => {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <h1 className="text-3xl font-bold">Settings</h1>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Financial Configuration</CardTitle>
@@ -50,20 +39,20 @@ const SettingsPage = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="electric">Electric Price (TL/kWh)</Label>
-            <Input 
-              id="electric" 
-              type="number" 
-              value={electricPrice} 
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setElectricPrice(e.target.value)} 
+            <Input
+              id="electric"
+              type="number"
+              value={electricPrice}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setElectricPrice(e.target.value)}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="wattage">Fallback Printer Wattage (W)</Label>
-            <Input 
-              id="wattage" 
-              type="number" 
-              value={fallbackWattage} 
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFallbackWattage(e.target.value)} 
+            <Input
+              id="wattage"
+              type="number"
+              value={fallbackWattage}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFallbackWattage(e.target.value)}
             />
           </div>
         </CardContent>
@@ -73,7 +62,7 @@ const SettingsPage = () => {
           </Button>
         </CardHeader>
       </Card>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Cost Template</CardTitle>
@@ -87,6 +76,17 @@ const SettingsPage = () => {
       </Card>
     </div>
   );
+};
+
+const SettingsPage = () => {
+  const { data: settings, isLoading } = useQuery<Settings>({
+    queryKey: ['settings'],
+    queryFn: () => api.get('/api/settings').then(res => res.data)
+  });
+
+  if (isLoading || !settings) return <div>Loading...</div>;
+
+  return <SettingsForm initialSettings={settings} />;
 };
 
 export default SettingsPage;

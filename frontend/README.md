@@ -1,73 +1,70 @@
-# React + TypeScript + Vite
+# ⚛️ 3D Management Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A premium, state-of-the-art dashboard built with React 19 and Tailwind 4. Designed for visual excellence and peak usability in managing 3D printing workflows.
 
-Currently, two official plugins are available:
+## 🛠 Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Core**: [React 19](https://react.dev/)
+- **Build Tool**: [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
+- **State Management**: [React Query](https://tanstack.com/query/latest)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Components**: Radix UI + Custom Glassmorphism System
+- **Package Manager**: [Bun](https://bun.sh/)
 
-## React Compiler
+## 🚀 Getting Started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Prerequisites
 
-## Expanding the ESLint configuration
+- [Bun](https://bun.sh/) installed (`curl -fsSL https://bun.sh/install | bash`)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Local Installation
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. **Install Dependencies**:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+    ```bash
+    bun install
+    ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+2. **Environment Variables**:
+    Create a `.env` file in the `frontend` directory:
+
+    ```env
+    VITE_API_BASE_URL=http://localhost:8001
+    ```
+
+3. **Run Development Server**:
+
+    ```bash
+    bun run dev
+    ```
+
+## 🎨 Design System
+
+The application uses a custom-built design system focused on:
+
+- **Glassmorphism**: Subtle translucent backgrounds for a modern "premium" feel.
+- **Micro-animations**: Smooth transitions for modals, hover states, and loading indicators.
+- **Dynamic Colors**: Filament colors are rendered using real-time database hex codes with visual swatches.
+
+## 📁 Component Architecture
+
+- **`src/components/stock/`**: Specialized inventory components (Summary cards, search bar, filament cards).
+- **`src/components/ui/`**: Reusable base components (Buttons, Inputs, Modals).
+- **`src/pages/`**: Main application views (Dashboard, Filament Stock, Stock Settings).
+
+## 🧪 Quality Control
+
+- **Linting**: `bun run lint`
+- **Build Check**: `bun run build`
+- **Format Check**: `bun run format` (if configured)
+
+## 📦 Production Build
+
+To generate a production bundle:
+
+```bash
+bun run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+The output will be in the `dist/` directory.
