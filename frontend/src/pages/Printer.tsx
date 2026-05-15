@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,11 +12,34 @@ const PrinterPage = () => {
   const queryClient = useQueryClient();
   const [lastManualPoll, setLastManualPoll] = useState<Date | null>(null);
 
-  const { data: status, isLoading } = useQuery({
+  const { data: status, isLoading, isError } = useQuery({
     queryKey: ['printer-status'],
     queryFn: () => api.get('/api/printer/status').then(res => res.data),
-    refetchInterval: 60000, // Poll every 1 minute
+    refetchInterval: 30000, // Poll every 30 seconds
   });
+
+  const [mountTime] = useState(() => Date.now());
+  const [lastValidDataTime, setLastValidDataTime] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const hasValidData = !isError && status && Object.keys(status).length > 0;
+    if (hasValidData) {
+      const timer = setTimeout(() => setLastValidDataTime(Date.now()), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [status, isError]);
+
+  const idleDuration = now - (lastValidDataTime ?? mountTime);
+  const isWarning = idleDuration > 60000; // 1 minute
+  const isOffline = idleDuration > 300000; // 5 minutes
+
+  const hasValidData = !isError && status && Object.keys(status).length > 0;
 
   const pollMutation = useMutation({
     mutationFn: () => api.post('/api/printer/poll'),
@@ -26,11 +49,56 @@ const PrinterPage = () => {
     }
   });
 
-  if (isLoading || !status || Object.keys(status).length === 0) {
+  if (isLoading || !hasValidData) {
+    if (isOffline) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
+          <Activity className="w-20 h-20 text-red-500 mb-6 opacity-40" />
+          <h2 className="text-3xl font-bold text-red-600 mb-2">Printer Offline</h2>
+          <p className="text-muted-foreground max-w-md">
+            Connection lost or printer turned off for {Math.floor(idleDuration / 60000)} minutes.
+            Check power and network connection.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-8"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['printer-status'] })}
+          >
+            Try Reconnecting
+          </Button>
+        </div>
+      );
+    }
+
+    if (isWarning) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 animate-in fade-in zoom-in duration-500">
+          <div className="relative mb-6">
+            <Activity className="w-20 h-20 text-amber-500/30" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-4xl font-bold text-amber-600">?</span>
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-amber-700 mb-2">Printer Status Uncertain</h2>
+          <p className="text-muted-foreground max-w-sm">
+            We haven't received telemetry for over a minute. The printer might be powered off or disconnected.
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <div className="px-4 py-1.5 bg-amber-100 text-amber-700 rounded-full text-xs font-bold uppercase tracking-wider animate-pulse">
+              Checking connection...
+            </div>
+            <p className="text-[10px] text-muted-foreground italic">
+              Auto-offline state in {Math.ceil((300000 - idleDuration) / 60000)} minutes
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Activity className="w-16 h-16 text-muted-foreground animate-pulse" />
-        <p className="text-xl font-medium text-muted-foreground">Connecting to printer telemetry...</p>
+        <Activity className="w-16 h-16 text-primary animate-spin-slow" />
+        <p className="text-xl font-medium text-muted-foreground">Synchronizing printer telemetry...</p>
       </div>
     );
   }

@@ -5,7 +5,7 @@ import { Activity, Thermometer, Clock } from 'lucide-react';
 import api from '@/lib/api';
 
 const PrinterStatusWidget = () => {
-  const { data: status, isLoading } = useQuery({
+  const { data: status, isLoading, isError } = useQuery({
     queryKey: ['printer-status'],
     queryFn: () => api.get('/api/printer/status').then(res => res.data),
     refetchInterval: 5000, // Poll every 5 seconds
@@ -21,19 +21,20 @@ const PrinterStatusWidget = () => {
   }, []);
 
   useEffect(() => {
-    if (status && Object.keys(status).length > 0) {
+    const hasValidData = !isError && status && Object.keys(status).length > 0;
+    if (hasValidData) {
       const timer = setTimeout(() => setLastValidDataTime(Date.now()), 0);
       return () => clearTimeout(timer);
     }
-  }, [status]);
+  }, [status, isError]);
 
   const idleDuration = now - (lastValidDataTime ?? mountTime);
   const isWarning = idleDuration > 60000; // 1 minute
   const isOffline = idleDuration > 300000; // 5 minutes
 
-  const hasData = status && Object.keys(status).length > 0;
+  const hasValidData = !isError && status && Object.keys(status).length > 0;
 
-  if (isLoading || !hasData) {
+  if (isLoading || !hasValidData) {
     if (isOffline) {
       return (
         <Card className="overflow-hidden border-none bg-gradient-to-br from-red-900 to-red-800 text-white shadow-xl">
