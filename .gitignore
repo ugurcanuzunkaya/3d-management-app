@@ -250,3 +250,7 @@ dist-ssr
 *.sln
 *.sw?
 *.db
+
+# Data dumps
+backend/printer_data_dump.json
+backend/stock_data.json
