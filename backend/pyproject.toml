@@ -11,6 +11,7 @@ dependencies = [
     "paho-mqtt>=2.1.0",
     "psycopg2-binary>=2.9.12",
     "pydantic-settings>=2.14.0",
+    "python-dotenv>=1.2.2",
     "sqlmodel>=0.0.38",
     "uvicorn>=0.46.0",
 ]

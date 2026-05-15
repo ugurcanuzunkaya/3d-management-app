@@ -141,6 +141,7 @@ dependencies = [
     { name = "paho-mqtt" },
     { name = "psycopg2-binary" },
     { name = "pydantic-settings" },
+    { name = "python-dotenv" },
     { name = "sqlmodel" },
     { name = "uvicorn" },
 ]
@@ -162,6 +163,7 @@ requires-dist = [
     { name = "paho-mqtt", specifier = ">=2.1.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.12" },
     { name = "pydantic-settings", specifier = ">=2.14.0" },
+    { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "sqlmodel", specifier = ">=0.0.38" },
     { name = "uvicorn", specifier = ">=0.46.0" },
 ]

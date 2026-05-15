@@ -7,12 +7,13 @@ import ollama
 
 logger = logging.getLogger(__name__)
 
+
 class AIService:
     def __init__(self):
         self.firecrawl_api_key = os.getenv("FIRECRAWL_API_KEY")
         self.ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         self.ollama_model = os.getenv("OLLAMA_MODEL_QWEN", "qwen3.5:latest")
-        
+
         if self.firecrawl_api_key:
             self.firecrawl_app = FirecrawlApp(api_key=self.firecrawl_api_key)
         else:
@@ -24,8 +25,8 @@ class AIService:
             return None
         try:
             # scrape_url returns a dictionary with 'markdown' content
-            result = self.firecrawl_app.scrape_url(url, params={'formats': ['markdown']})
-            return result.get("markdown")
+            result = self.firecrawl_app.scrape(url, formats=["markdown"])
+            return result.markdown
         except Exception as e:
             logger.error(f"Error fetching markdown from Firecrawl: {e}")
             return None
@@ -44,15 +45,12 @@ class AIService:
         Markdown Content:
         {markdown_content}
         """
-        
+
         try:
             response = ollama.generate(
-                model=self.ollama_model,
-                prompt=prompt,
-                format="json",
-                stream=False
+                model=self.ollama_model, prompt=prompt, format="json", stream=False
             )
-            return json.loads(response['response'])
+            return json.loads(response["response"])
         except Exception as e:
             logger.error(f"Error extracting parameters with Ollama: {e}")
             return {}

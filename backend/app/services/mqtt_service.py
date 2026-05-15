@@ -1,58 +1,114 @@
 import json
 import logging
 import os
-from datetime import datetime
+import ssl
 import paho.mqtt.client as mqtt
-from sqlmodel import Session, select
+from sqlmodel import Session
 from ..database import engine
-from ..models import PrintJob, Filament, Model3D, Settings
+from ..models import PrintJob
+import time
 
 logger = logging.getLogger(__name__)
 
+
 class BambuMQTTService:
     def __init__(self):
-        self.host = os.getenv("BAMBU_PRINTER_IP")
-        self.serial = os.getenv("BAMBU_PRINTER_SERIAL")
-        self.access_code = os.getenv("BAMBU_PRINTER_ACCESS_CODE")
+        self.host = os.getenv("BAMBU_PRINTER_IP", "").strip()
+        self.serial = os.getenv("BAMBU_PRINTER_SERIAL", "").strip()
+        self.access_code = os.getenv("BAMBU_PRINTER_ACCESS_CODE", "").strip()
         self.client = mqtt.Client()
         self.client.username_pw_set("bblp", self.access_code)
-        self.client.tls_set() # Bambu uses TLS
+
+        logger.info(
+            f"Initializing MQTT for printer {self.host} (Serial: {self.serial})"
+        )
+
+        # Configure TLS to bypass certificate verification for local printer
+        self.client.tls_set(cert_reqs=ssl.CERT_NONE)
         self.client.tls_insecure_set(True)
-        
+
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
+        self.last_status = {}
+        self.received_first_message = False
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
             logger.info("Connected to Bambu Printer MQTT")
-            self.client.subscribe(f"device/{self.serial}/report")
+            # Subscribe to ALL topics for debugging
+            self.client.subscribe("#")
+            # Request all data immediately
+            push_command = {"pushing": {"sequence_id": "0", "command": "pushall"}}
+            self.client.publish(
+                f"device/{self.serial}/request", json.dumps(push_command)
+            )
+            logger.info(f"Requested initial data push for serial {self.serial}")
         else:
             logger.error(f"Failed to connect to MQTT, rc: {rc}")
 
     def on_message(self, client, userdata, msg):
         try:
+            current_time = time.time()
             payload = json.loads(msg.payload.decode())
+
             if "print" in payload:
                 print_data = payload["print"]
                 gcode_state = print_data.get("gcode_state")
-                
-                if gcode_state == "FINISH":
+
+                # Always process if it's a finish state
+                is_finish = gcode_state == "FINISH"
+
+                # Throttle processing to once per 60 seconds for general updates
+                last_update = self.last_status.get("_internal_timestamp", 0)
+                if not is_finish and (current_time - last_update < 60):
+                    return
+
+                # Update in-memory status
+                print_data["_internal_timestamp"] = current_time
+                self.last_status.update(print_data)
+
+                if not self.received_first_message:
+                    logger.info(
+                        f"Connected and received data from printer {self.serial}"
+                    )
+                    self.received_first_message = True
+
+                if is_finish:
                     self.handle_print_finish(print_data)
+
         except Exception as e:
             logger.error(f"Error parsing MQTT message: {e}")
 
     def handle_print_finish(self, data):
+        # Prevent duplicate job creation if we already handled this one
+        # In a real app, we might use a unique job ID from the printer
         with Session(engine) as session:
-            # Create a pending PrintJob based on report data
             job = PrintJob(
-                duration_minutes=data.get("mc_remaining_time", 0), # Or calculate from start
-                used_filament_g=data.get("filament_used_g", 0.0),
-                power_usage_kwh=0.0, # Placeholder, will use real-time if available
-                status="pending"
+                name=f"Printer Job {self.serial}",
+                duration_minutes=data.get("mc_remaining_time", 0),
+                total_cost=0.0,
+                production_cost=0.0,
+                status="completed",
             )
             session.add(job)
             session.commit()
-            logger.info(f"New pending print job created from MQTT for serial {self.serial}")
+            logger.info(
+                f"New pending print job created from MQTT for serial {self.serial}"
+            )
+
+    def manual_poll(self):
+        if not self.host:
+            return
+        push_command = {"pushing": {"sequence_id": "0", "command": "pushall"}}
+        self.client.publish(f"device/{self.serial}/request", json.dumps(push_command))
+        logger.info(f"Manual poll requested for serial {self.serial}")
+
+    def get_status(self):
+        # Return last status with a timestamp of the update
+        return {
+            **self.last_status,
+            "last_updated": time.time() if self.last_status else None,
+        }
 
     def start(self):
         if not self.host:
