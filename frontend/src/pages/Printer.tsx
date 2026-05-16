@@ -15,7 +15,7 @@ const PrinterPage = () => {
   const { data: status, isLoading, isError } = useQuery({
     queryKey: ['printer-status'],
     queryFn: () => api.get('/api/printer/status').then(res => res.data),
-    refetchInterval: 30000, // Poll every 30 seconds
+    refetchInterval: 60000, // Poll every 1 minute
   });
 
   const [mountTime] = useState(() => Date.now());

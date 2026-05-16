@@ -81,7 +81,9 @@ class PrintJob(SQLModel, table=True):
     filaments: List["Filament"] = Relationship(
         back_populates="jobs", link_model=JobFilament
     )
-    job_filaments: List[JobFilament] = Relationship()
+    job_filaments: List[JobFilament] = Relationship(
+        sa_relationship_kwargs={"overlaps": "filaments"}
+    )
 
 
 # Update Filament model back_populates
@@ -100,5 +102,7 @@ class Filament(SQLModel, table=True):
     filament_type: Optional[FilamentType] = Relationship(back_populates="filaments")
     filament_color: Optional[FilamentColor] = Relationship(back_populates="filaments")
     jobs: List["PrintJob"] = Relationship(
-        back_populates="filaments", link_model=JobFilament
+        back_populates="filaments",
+        link_model=JobFilament,
+        sa_relationship_kwargs={"overlaps": "job_filaments"},
     )

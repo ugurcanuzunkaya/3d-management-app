@@ -27,11 +27,19 @@ def test_create_filament_with_series(session: Session):
     session.add(series)
     session.commit()
 
+    from app.models import FilamentType, FilamentColor
+
+    f_type = FilamentType(name="PLA")
+    color = FilamentColor(name="Red")
+    session.add(f_type)
+    session.add(color)
+    session.commit()
+
     filament = Filament(
         name="Test Filament",
         series_id=series.id,
-        type="PLA",
-        color="Red",
+        type_id=f_type.id,
+        color_id=color.id,
         price_per_kg=100.0,
         remaining_weight_g=500.0,
     )
