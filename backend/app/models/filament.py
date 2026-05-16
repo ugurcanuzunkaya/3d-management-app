@@ -1,20 +1,9 @@
 from datetime import datetime, timezone
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship, JSON, Column
 
-
-class Settings(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    electric_price: float = Field(default=0.0, description="Price per kWh in TL")
-    fallback_wattage: float = Field(
-        default=200.0, description="Fallback wattage in Watts"
-    )
-
-
-class StockSettings(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    default_price_per_kg: float = Field(default=500.0)
-    default_weight_g: float = Field(default=1000.0)
+if TYPE_CHECKING:
+    from .job import PrintJob
 
 
 class FilamentType(SQLModel, table=True):
@@ -54,39 +43,6 @@ class JobFilament(SQLModel, table=True):
     grams_used: float = Field(default=0.0)
 
 
-class Model3D(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(index=True)
-    source_url: Optional[str] = None
-    local_path: Optional[str] = None
-    estimated_weight_g: float = Field(default=0.0)
-    tech_details: Dict = Field(default={}, sa_column=Column(JSON))
-
-    jobs: List["PrintJob"] = Relationship(back_populates="model")
-
-
-class PrintJob(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(index=True)
-    job_type: str = Field(default="Generic")
-    model_id: Optional[int] = Field(default=None, foreign_key="model3d.id")
-    duration_minutes: int = Field(default=0)
-    total_cost: float = Field(default=0.0)  # This is the sales price
-    production_cost: float = Field(default=0.0)
-    status: str = Field(default="completed")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-    # Relationships
-    model: Optional[Model3D] = Relationship(back_populates="jobs")
-    filaments: List["Filament"] = Relationship(
-        back_populates="jobs", link_model=JobFilament
-    )
-    job_filaments: List[JobFilament] = Relationship(
-        sa_relationship_kwargs={"overlaps": "filaments"}
-    )
-
-
-# Update Filament model back_populates
 class Filament(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
@@ -101,8 +57,8 @@ class Filament(SQLModel, table=True):
     series: Optional[FilamentSeries] = Relationship(back_populates="filaments")
     filament_type: Optional[FilamentType] = Relationship(back_populates="filaments")
     filament_color: Optional[FilamentColor] = Relationship(back_populates="filaments")
+    job_filaments: List[JobFilament] = Relationship()
     jobs: List["PrintJob"] = Relationship(
-        back_populates="filaments",
-        link_model=JobFilament,
-        sa_relationship_kwargs={"overlaps": "job_filaments"},
+        sa_relationship_kwargs={"viewonly": True},
+        link_model=JobFilament
     )
