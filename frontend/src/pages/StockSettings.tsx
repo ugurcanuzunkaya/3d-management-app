@@ -17,26 +17,26 @@ const StockSettingsPage = () => {
 
   const { data: types, isLoading: loadingTypes } = useQuery<FilamentType[]>({
     queryKey: ['filament-types'],
-    queryFn: () => api.get('/api/filament-types').then(res => res.data)
+    queryFn: () => api.get('/api/filaments/types').then(res => res.data)
   });
 
   const { data: colors, isLoading: loadingColors } = useQuery<FilamentColor[]>({
     queryKey: ['filament-colors'],
-    queryFn: () => api.get('/api/filament-colors').then(res => res.data)
+    queryFn: () => api.get('/api/filaments/colors').then(res => res.data)
   });
 
   const { data: settings, isLoading: loadingSettings } = useQuery<StockSettings>({
     queryKey: ['stock-settings'],
-    queryFn: () => api.get('/api/stock-settings').then(res => res.data)
+    queryFn: () => api.get('/api/settings/stock').then(res => res.data)
   });
 
   const updateSettingsMutation = useMutation({
-    mutationFn: (data: Partial<StockSettings>) => api.put('/api/stock-settings', data),
+    mutationFn: (data: Partial<StockSettings>) => api.put('/api/settings/stock', data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-settings'] })
   });
 
   const addTypeMutation = useMutation({
-    mutationFn: (name: string) => api.post('/api/filament-types', { name, is_custom: true }),
+    mutationFn: (name: string) => api.post('/api/filaments/types', { name, is_custom: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['filament-types'] });
       setNewTypeName('');
@@ -44,12 +44,12 @@ const StockSettingsPage = () => {
   });
 
   const deleteTypeMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/filament-types/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/filaments/types/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['filament-types'] })
   });
 
   const addColorMutation = useMutation({
-    mutationFn: (data: { name: string, hex_code: string }) => api.post('/api/filament-colors', data),
+    mutationFn: (data: { name: string, hex_code: string }) => api.post('/api/filaments/colors', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['filament-colors'] });
       setNewColorName('');
@@ -58,7 +58,7 @@ const StockSettingsPage = () => {
   });
 
   const deleteColorMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/filament-colors/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/filaments/colors/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['filament-colors'] })
   });
 

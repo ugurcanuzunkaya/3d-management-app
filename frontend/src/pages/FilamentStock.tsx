@@ -38,17 +38,17 @@ const FilamentStock = () => {
 
   const { data: types } = useQuery<FilamentType[]>({
     queryKey: ['filament-types'],
-    queryFn: () => api.get('/api/filament-types').then(res => res.data)
+    queryFn: () => api.get('/api/filaments/types').then(res => res.data)
   });
 
   const { data: colors } = useQuery<FilamentColor[]>({
     queryKey: ['filament-colors'],
-    queryFn: () => api.get('/api/filament-colors').then(res => res.data)
+    queryFn: () => api.get('/api/filaments/colors').then(res => res.data)
   });
 
   const { data: stockSettings } = useQuery<StockSettings>({
     queryKey: ['stock-settings'],
-    queryFn: () => api.get('/api/stock-settings').then(res => res.data)
+    queryFn: () => api.get('/api/settings/stock').then(res => res.data)
   });
 
   const upsertMutation = useMutation({
