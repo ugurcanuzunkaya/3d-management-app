@@ -26,24 +26,6 @@ def create_filament(data: FilamentCreate, session: Session = Depends(get_session
     return FilamentService.create_filament(session, data)
 
 
-@router.get("/{filament_id}", response_model=FilamentRead)
-def get_filament(filament_id: int, session: Session = Depends(get_session)):
-    return FilamentService.get_filament(session, filament_id)
-
-
-@router.patch("/{filament_id}", response_model=FilamentRead)
-def update_filament(
-    filament_id: int, data: FilamentUpdate, session: Session = Depends(get_session)
-):
-    return FilamentService.update_filament(session, filament_id, data)
-
-
-@router.delete("/{filament_id}")
-def delete_filament(filament_id: int, session: Session = Depends(get_session)):
-    FilamentService.delete_filament(session, filament_id)
-    return {"ok": True}
-
-
 # Types
 @router.get("/types", response_model=List[FilamentTypeRead])
 def list_types(session: Session = Depends(get_session)):
@@ -75,4 +57,22 @@ def create_color(data: FilamentColorCreate, session: Session = Depends(get_sessi
 @router.delete("/colors/{color_id}")
 def delete_color(color_id: int, session: Session = Depends(get_session)):
     FilamentService.delete_color(session, color_id)
+    return {"ok": True}
+
+
+@router.get("/{filament_id}", response_model=FilamentRead)
+def get_filament(filament_id: int, session: Session = Depends(get_session)):
+    return FilamentService.get_filament(session, filament_id)
+
+
+@router.patch("/{filament_id}", response_model=FilamentRead)
+def update_filament(
+    filament_id: int, data: FilamentUpdate, session: Session = Depends(get_session)
+):
+    return FilamentService.update_filament(session, filament_id, data)
+
+
+@router.delete("/{filament_id}")
+def delete_filament(filament_id: int, session: Session = Depends(get_session)):
+    FilamentService.delete_filament(session, filament_id)
     return {"ok": True}
