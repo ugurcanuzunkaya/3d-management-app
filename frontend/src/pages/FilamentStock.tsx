@@ -60,6 +60,8 @@ const FilamentStock = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['filaments'] });
+      queryClient.invalidateQueries({ queryKey: ['filament-types'] });
+      queryClient.invalidateQueries({ queryKey: ['filament-colors'] });
       setIsFormOpen(false);
       setEditingFilament(null);
     }
