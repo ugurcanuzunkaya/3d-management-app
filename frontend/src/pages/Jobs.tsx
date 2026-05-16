@@ -83,6 +83,34 @@ const Jobs = () => {
     }
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/api/printjobs/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['filaments'] });
+    }
+  });
+
+  const deleteAllMutation = useMutation({
+    mutationFn: () => api.delete('/api/printjobs/all'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['filaments'] });
+    }
+  });
+
+  const handleDelete = (id: number) => {
+    if (window.confirm('Are you sure you want to delete this job? This will restore the used filament stock.')) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleDeleteAll = () => {
+    if (window.confirm('WARNING: Are you sure you want to delete ALL jobs? This action cannot be undone and will restore all used filament stock.')) {
+      deleteAllMutation.mutate();
+    }
+  };
+
   const handleCancel = () => {
     setShowForm(false);
     setEditingJobId(null);
@@ -167,10 +195,16 @@ const Jobs = () => {
           <h1 className="text-3xl font-bold">Print Jobs</h1>
           <p className="text-muted-foreground">Track and manage your manual and automated print jobs.</p>
         </div>
-        <Button onClick={() => showForm ? handleCancel() : setShowForm(true)} className="gap-2">
-          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? 'Cancel' : 'Add New Job'}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="destructive" onClick={handleDeleteAll} disabled={!jobs?.length || deleteAllMutation.isPending} className="gap-2">
+            <Trash2 className="w-4 h-4" />
+            Delete All
+          </Button>
+          <Button onClick={() => showForm ? handleCancel() : setShowForm(true)} className="gap-2">
+            {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {showForm ? 'Cancel' : 'Add New Job'}
+          </Button>
+        </div>
       </div>
 
       {showForm && (
@@ -342,7 +376,7 @@ const Jobs = () => {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right flex justify-end gap-2">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -350,6 +384,14 @@ const Jobs = () => {
                       className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                     >
                       <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(job.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </TableCell>
                 </TableRow>

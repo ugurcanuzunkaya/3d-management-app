@@ -35,11 +35,20 @@ export const useJobs = (status?: string) => {
     },
   });
 
+  const deleteAllJobsMutation = useMutation({
+    mutationFn: jobsApi.deleteAll,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['filaments'] });
+    },
+  });
+
   return {
     jobs: jobsQuery.data || [],
     isLoading: jobsQuery.isLoading,
     createJob: createJobMutation.mutateAsync,
     updateJob: updateJobMutation.mutateAsync,
     deleteJob: deleteJobMutation.mutateAsync,
+    deleteAllJobs: deleteAllJobsMutation.mutateAsync,
   };
 };

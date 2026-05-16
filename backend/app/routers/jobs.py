@@ -28,6 +28,12 @@ def update_job(job_id: int, data: PrintJobUpdate, session: Session = Depends(get
     return JobService.update_job(session, job_id, data)
 
 
+@router.delete("/all")
+def delete_all_jobs(session: Session = Depends(get_session)):
+    JobService.delete_all_jobs(session)
+    return {"ok": True}
+
+
 @router.delete("/{job_id}")
 def delete_job(job_id: int, session: Session = Depends(get_session)):
     JobService.delete_job(session, job_id)

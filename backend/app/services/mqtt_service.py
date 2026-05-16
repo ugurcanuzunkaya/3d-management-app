@@ -3,9 +3,6 @@ import logging
 import os
 import ssl
 import paho.mqtt.client as mqtt
-from sqlmodel import Session
-from ..database import engine
-from ..models import PrintJob
 import time
 
 logger = logging.getLogger(__name__)
@@ -55,12 +52,9 @@ class BambuMQTTService:
                 print_data = payload["print"]
                 gcode_state = print_data.get("gcode_state")
 
-                # Always process if it's a finish state
-                is_finish = gcode_state == "FINISH"
-
                 # Throttle processing to once per 60 seconds for general updates
                 last_update = self.last_status.get("_internal_timestamp", 0)
-                if not is_finish and (current_time - last_update < 60):
+                if current_time - last_update < 60:
                     return
 
                 # Update in-memory status
@@ -73,28 +67,10 @@ class BambuMQTTService:
                     )
                     self.received_first_message = True
 
-                if is_finish:
-                    self.handle_print_finish(print_data)
-
         except Exception as e:
             logger.error(f"Error parsing MQTT message: {e}")
 
-    def handle_print_finish(self, data):
-        # Prevent duplicate job creation if we already handled this one
-        # In a real app, we might use a unique job ID from the printer
-        with Session(engine) as session:
-            job = PrintJob(
-                name=f"Printer Job {self.serial}",
-                duration_minutes=data.get("mc_remaining_time", 0),
-                total_cost=0.0,
-                production_cost=0.0,
-                status="completed",
-            )
-            session.add(job)
-            session.commit()
-            logger.info(
-                f"New pending print job created from MQTT for serial {self.serial}"
-            )
+
 
     def manual_poll(self):
         if not self.host:

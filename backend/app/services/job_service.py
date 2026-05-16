@@ -126,3 +126,16 @@ class JobService:
         # 2. Delete job (cascades will handle job_filaments deletion)
         session.delete(job)
         session.commit()
+
+    @staticmethod
+    def delete_all_jobs(session: Session) -> None:
+        jobs = session.exec(select(PrintJob)).all()
+        for job in jobs:
+            # Revert stock
+            for link in job.job_filaments:
+                filament = session.get(Filament, link.filament_id)
+                if filament:
+                    filament.remaining_weight_g += link.grams_used
+                    session.add(filament)
+            session.delete(job)
+        session.commit()
