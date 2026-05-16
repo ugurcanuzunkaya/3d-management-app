@@ -18,7 +18,7 @@ A premium, comprehensive management system for 3D printing workflows, specifical
 The project is built with a modern, decoupled architecture:
 
 - **Frontend**: [React 19](frontend/README.md) + [Vite](frontend/README.md) + [Tailwind 4](frontend/README.md)
-- **Backend**: [FastAPI](backend/README.md) + [SQLModel](backend/README.md) + [PostgreSQL](backend/README.md)
+- **Backend**: [FastAPI](backend/README.md) + [SQLModel](backend/README.md) + [Alembic](backend/alembic/) + [PostgreSQL](backend/README.md)
 - **Infrastructure**: [Docker Compose](docker-compose.yml)
 
 ## 🚀 Quick Start
@@ -67,9 +67,9 @@ For detailed development instructions, please refer to the sub-project READMEs:
 
 ## 🗺 Roadmap
 
-- [ ] **Phase 1**: Core Inventory & CRUD (Completed)
-- [ ] **Phase 2**: MQTT Bambu Lab Integration (Active)
-- [ ] **Phase 3**: Advanced Analytics & Reporting
+- [x] **Phase 1**: Core Inventory & CRUD (Completed)
+- [x] **Phase 2**: MQTT Bambu Lab Integration (Completed)
+- [ ] **Phase 3**: Advanced Analytics & Reporting (Active)
 - [ ] **Phase 4**: Mobile Companion App (PWA)
 - [ ] **Phase 5**: Multi-printer Support & Queue Management
 

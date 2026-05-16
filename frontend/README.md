@@ -30,7 +30,7 @@ A premium, state-of-the-art dashboard built with React 19 and Tailwind 4. Design
     Create a `.env` file in the `frontend` directory:
 
     ```env
-    VITE_API_BASE_URL=http://localhost:8001
+    VITE_API_BASE_URL=http://localhost:8000
     ```
 
 3. **Run Development Server**:
@@ -51,7 +51,9 @@ The application uses a custom-built design system focused on:
 
 - **`src/components/stock/`**: Specialized inventory components (Summary cards, search bar, filament cards).
 - **`src/components/ui/`**: Reusable base components (Buttons, Inputs, Modals).
-- **`src/pages/`**: Main application views (Dashboard, Filament Stock, Stock Settings).
+- **`src/components/jobs/`**: Print job management components.
+- **`src/components/printer/`**: Real-time printer terminal and status views.
+- **`src/pages/`**: Main application views (Dashboard, Filament Stock, Settings, Jobs, Printer, Library).
 
 ## 🧪 Quality Control
 

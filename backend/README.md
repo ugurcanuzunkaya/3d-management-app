@@ -40,8 +40,14 @@ The backend engine for the 3D Management App, built with FastAPI and SQLModel. I
     uv run uvicorn app.main:app --reload --port 8001
     ```
 
-4. **Seed Data**:
-    The database is automatically seeded on startup via the `lifespan` event, but you can run it manually:
+4. **Database Migrations & Seeding**:
+    We use Alembic for database migrations. To create the database schema, run:
+
+    ```bash
+    uv run alembic upgrade head
+    ```
+
+    After the schema is created, populate the database with initial seed data:
 
     ```bash
     uv run python -m app.seed
@@ -67,8 +73,9 @@ The backend engine for the 3D Management App, built with FastAPI and SQLModel. I
 ```text
 app/
 ├── main.py          # FastAPI application & routes
-├── models.py        # SQLModel database definitions
-├── schemas.py       # Pydantic validation schemas
+├── models/          # SQLModel database definitions
+├── schemas/         # Pydantic validation schemas
+├── routers/         # API endpoints
 ├── database.py      # Engine & session management
 ├── seed.py          # Data seeding & sequence management
 └── services/        # Business logic (AI, MQTT, Costs)
