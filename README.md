@@ -5,22 +5,27 @@ A premium, comprehensive management system for 3D printing workflows, specifical
 ## 📸 Visual Showcase
 
 ### 📊 Dashboard Control Center
+
 ![Dashboard Control Center](screenshots/dashboard.png)
 *Real-time control center featuring state-aware printer monitoring widgets and automated capacity gauges.*
 
 ### 📦 3D Model Library & AI Spec Scanner
+
 ![3D Model Library](screenshots/models.png)
 *Decoupled library managing dynamic specifications with multi-provider AI scanning grids (Gemini, Claude, OpenAI, Ollama).*
 
 ### 📡 Printer Terminal Telemetry
+
 ![Printer Terminal Telemetry](screenshots/printer.png)
 *Obsidian-black dynamic terminal card showing job progress, thermals, speed performance, and AMS feedback.*
 
 ### 🎨 Filament Stock Tab
+
 ![Filament Stock Tab](screenshots/stock.png)
 *Unified inventory overview showing weight summaries, color hex swatches, custom glows, and warning threshold states.*
 
 ### 🛠️ System Control Settings
+
 ![System Control Settings](screenshots/settings.png)
 *System-wide customizable parameters, brands, standard density indices, and active MQTT topics.*
 
@@ -87,13 +92,33 @@ For detailed development instructions, please refer to the sub-project READMEs:
 - 🐍 [Backend Development](backend/README.md)
 - ⚛️ [Frontend Development](frontend/README.md)
 
-## 🗺 Roadmap
+## 🗺️ Roadmap & Operational Vision
 
-- [x] **Phase 1**: Core Inventory & CRUD (Completed)
-- [x] **Phase 2**: MQTT Bambu Lab Integration (Completed)
-- [ ] **Phase 3**: Advanced Analytics & Reporting (Active)
-- [ ] **Phase 4**: Mobile Companion App (PWA)
-- [ ] **Phase 5**: Multi-printer Support & Queue Management
+We have structured our expansion strategy into logical, high-impact development cycles designed to turn this tool into the ultimate smart 3D printing workshop hub.
+
+### Done & Delivered 🚀
+*   **[x] Phase 1: Core Inventory & Color normalization (Completed)**
+    *   *Features*: Complete relational database schema tracking filament spools, automatic consumption tallies, color hex swatches, custom threshold limits, and low-stock alarms. Included modular global settings.
+*   **[x] Phase 2: Asynchronous MQTT Telemetry Services (Completed)**
+    *   *Features*: Real-time IoT background listeners tracking Bambu Lab printer channels. Crafted the custom-themed Obsidian black status monitors, changing gradient mixes based on GCODE execution states (Running, Pause, Failed, Idle). Live nozzle/bed thermals, speed multipliers, and AMS humidity metrics.
+*   **[x] Phase 3: AI Slicing Spectrometer & Web Scraper (Completed)**
+    *   *Features*: A decoupled 3D Model Library featuring drag-and-drop vision scanning (multipart images) and automated link scraping (Playwright + Firecrawl). Backed by Gemini, Claude, OpenAI, and local Ollama (`qwen3.5` & `gemma4`) model extractions. Gorgeously themed site-provider cards (Printables orange-glow and MakerWorld green-glow themes).
+
+### Upcoming Milestones 🔮
+*   **[ ] Phase 4: Advanced Cost Analytics & Production Reporting (Active)**
+    *   *Energy Tracking*: Join active print job duration profiles with local utility kWh pricing grids to compute precise real-time electrical overheads.
+    *   *Automated Depletion*: Automatically decrement spool remaining weights upon successful print job execution, updating the warehouse log.
+    *   *ROI Margins Deck*: Interactive graphs comparing raw material costs (filament + wear + electricity) against sales value to chart operational return on investment.
+    *   *Print Reports*: Exportable PDF print logs documenting filament color distributions, monthly production volumes, and machine failure frequencies.
+*   **[ ] Phase 5: Smart Print Queue & Multi-Machine Clusters**
+    *   *Global Queue Deck*: A centralized priority-ranked spool queue. Queue up sliced files, set print priorities, and automatically route tasks to idle nodes.
+    *   *Machine Registry*: Scale the telemetry deck to cluster multiple active Bambu Lab printers or other network-connected nodes into a grouped visual fleet.
+    *   *Color-Matching Dispatcher*: Auto-assign prints to nodes based on matching active AMS slots with the material requirements parsed by our AI spectrometer.
+    *   *Maintenance Logbook*: Monitor component wear (nozzle, lead screws, belt tension profiles) prompting custom maintenance alerts based on active operating run-times.
+*   **[ ] Phase 6: PWA Mobile Companion & Push Notifications**
+    *   *Mobile PWA*: Desktop-matching, ultra-fluid Progressive Web App featuring offline caching profiles and simple native home-screen installation.
+    *   *Real-time Push Alerts*: Push notification system informing the user's mobile device of failure warnings (filament depletion, chamber overheating) or successful job finishes.
+    *   *Low-latency Webcams*: Direct integration of printer camera streams inside the dashboard layout using secure, low-latency HLS or WebRTC feeds.
 
 ## 🤝 Contributing
 

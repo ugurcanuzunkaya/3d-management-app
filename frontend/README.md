@@ -15,10 +15,10 @@ A premium, state-of-the-art dashboard built with React 19 and Tailwind 4. Design
 ## 📸 UI Screenshots
 
 We have designed a stunning, modern visual interface built using curated Tailwind palettes and rich custom layers:
-*   **[Dashboard Overview](../screenshots/dashboard.png)**: Visual summary metrics and active printer telemetries.
-*   **[Model Library & Scanner](../screenshots/models.png)**: Premium light cards alongside the pure-black Obsidian details editor.
-*   **[Printer Terminal](../screenshots/printer.png)**: State-aware Obsidian telemetry card and high-contrast thermal readouts.
-*   **[Filament Stock](../screenshots/stock.png)**: Custom color blends and warnings with responsive hover flows.
+- **[Dashboard Overview](../screenshots/dashboard.png)**: Visual summary metrics and active printer telemetries.
+- **[Model Library & Scanner](../screenshots/models.png)**: Premium light cards alongside the pure-black Obsidian details editor.
+- **[Printer Terminal](../screenshots/printer.png)**: State-aware Obsidian telemetry card and high-contrast thermal readouts.
+- **[Filament Stock](../screenshots/stock.png)**: Custom color blends and warnings with responsive hover flows.
 
 ## 🚀 Getting Started
 
