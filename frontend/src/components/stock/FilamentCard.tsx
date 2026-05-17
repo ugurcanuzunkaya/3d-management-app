@@ -23,10 +23,10 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
       const r = parseInt(hex.substring(0, 2), 16);
       const g = parseInt(hex.substring(2, 4), 16);
       const b = parseInt(hex.substring(4, 6), 16);
-      
+
       const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
       const maxDiff = Math.max(Math.abs(r - g), Math.abs(r - b), Math.abs(g - b));
-      
+
       return luminance < 0.35 || maxDiff < 30;
     } catch {
       return false;
@@ -34,21 +34,25 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
   })();
 
   const cardStyle = {
-    background: `linear-gradient(135deg, #000000 0%, #0c0c0e 65%, ${colorHex}0c 100%)`,
-    borderColor: isHovered ? `${colorHex}44` : `${colorHex}15`,
-    boxShadow: isHovered ? `0 0 15px ${colorHex}0f` : 'none',
+    background: `linear-gradient(135deg, #000000 0%, #09090b 50%, color-mix(in srgb, ${colorHex} 50%, #09090b) 100%)`,
+    borderColor: isHovered
+      ? colorHex
+      : `color-mix(in srgb, ${colorHex} 20%, #1c1c1f)`,
+    boxShadow: isHovered
+      ? `0 0 15px color-mix(in srgb, ${colorHex} 15%, transparent)`
+      : 'none',
   };
 
   return (
-    <Card 
-      className="overflow-hidden group transition-all duration-300 border text-white flex flex-col justify-between h-[210px]"
+    <Card
+      className="overflow-hidden group relative transition-all duration-300 border text-white flex flex-col justify-between h-[210px]"
       style={cardStyle}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
         className="h-1.5 w-full transition-all duration-300"
-        style={{ 
+        style={{
           backgroundColor: colorHex,
           boxShadow: isHovered ? `0 1px 6px ${colorHex}` : 'none'
         }}
@@ -56,26 +60,25 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
       <CardHeader className="p-4 pb-2 space-y-0">
         <div className="flex justify-between items-start gap-2">
           <div className="space-y-1.5 flex-grow">
-            <CardTitle 
+            <CardTitle
               className="text-base font-semibold leading-tight line-clamp-1 transition-colors duration-300"
               style={{ color: isHovered && !isDarkOrGrey ? colorHex : '#ffffff' }}
             >
               {filament.name}
             </CardTitle>
             <div className="flex flex-wrap gap-1">
-              <Badge 
-                variant="outline" 
-                className={`text-[9px] font-bold uppercase tracking-wider h-4 px-1.5 transition-colors border ${
-                  filament.is_opened 
-                    ? 'bg-zinc-800/40 text-zinc-300 border-zinc-700/50' 
-                    : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40'
-                }`}
+              <Badge
+                variant="outline"
+                className={`text-[9px] font-bold uppercase tracking-wider h-4 px-1.5 transition-colors border ${filament.is_opened
+                  ? 'bg-zinc-800/40 text-zinc-300 border-zinc-700/50'
+                  : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40'
+                  }`}
               >
                 {filament.is_opened ? "Opened" : "Sealed"}
               </Badge>
               {filament.filament_type && (
-                <Badge 
-                  variant="ghost" 
+                <Badge
+                  variant="ghost"
                   className="text-[9px] font-bold uppercase tracking-wider h-4 px-1.5 bg-zinc-800/60 text-zinc-200 border border-zinc-700/40"
                 >
                   {filament.filament_type.name}
@@ -84,18 +87,18 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
             </div>
           </div>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0">
-            <Button 
-              variant="ghost" 
-              size="icon-xs" 
+            <Button
+              variant="ghost"
+              size="icon-xs"
               className="h-6 w-6 text-zinc-400 hover:text-white hover:bg-zinc-800/60"
               onClick={() => onEdit(filament)}
             >
               <Pencil className="h-3 w-3" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon-xs" 
-              className="h-6 w-6 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800/60" 
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="h-6 w-6 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800/60"
               onClick={() => onDelete(filament)}
             >
               <Trash2 className="h-3 w-3" />
@@ -108,10 +111,9 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
               <span className="text-zinc-400">Remaining Weight:</span>
-              <span 
-                className={`font-bold transition-colors ${
-                  isLowStock ? 'text-rose-400' : 'text-zinc-200'
-                }`}
+              <span
+                className={`font-bold transition-colors ${isLowStock ? 'text-rose-400' : 'text-zinc-200'
+                  }`}
               >
                 {filament.remaining_weight_g}g
               </span>
@@ -119,7 +121,7 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
             <div className="w-full bg-zinc-800/60 h-1.5 rounded-full overflow-hidden border border-zinc-850/40">
               <div
                 className="h-full transition-all duration-300"
-                style={{ 
+                style={{
                   width: `${Math.min(100, (filament.remaining_weight_g / 1000) * 100)}%`,
                   backgroundColor: isLowStock ? '#ef4444' : colorHex
                 }}

@@ -3,7 +3,7 @@ import { LayoutDashboard, ClipboardList, Library, Box, Settings, Activity } from
 
 const Navbar = () => {
   return (
-    <nav className="border-b bg-background sticky top-0 z-50">
+    <nav className="border-b bg-white sticky top-0 z-40">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2 font-bold text-xl">
           <Box className="w-6 h-6 text-primary" />

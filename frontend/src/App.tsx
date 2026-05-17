@@ -34,7 +34,7 @@ function App() {
       <Router>
         <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
           <Navbar />
-          <main className="container mx-auto py-8 px-4">
+          <main className="container mx-auto py-8 px-4 relative z-0">
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/jobs" element={<Jobs />} />
