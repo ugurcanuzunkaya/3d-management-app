@@ -16,10 +16,27 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
   const isLowStock = filament.remaining_weight_g < 200;
   const colorHex = filament.filament_color?.hex_code || '#808080';
 
+  // Calculate if the color is dark or a shade of grey to prevent text color dimming on hover
+  const isDarkOrGrey = (() => {
+    try {
+      const hex = colorHex.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      const maxDiff = Math.max(Math.abs(r - g), Math.abs(r - b), Math.abs(g - b));
+      
+      return luminance < 0.35 || maxDiff < 30;
+    } catch {
+      return false;
+    }
+  })();
+
   const cardStyle = {
-    background: `linear-gradient(135deg, #030303 0%, #0e0e11 65%, ${colorHex}22 100%)`,
-    borderColor: isHovered ? `${colorHex}66` : `${colorHex}22`,
-    boxShadow: isHovered ? `0 0 15px ${colorHex}18` : 'none',
+    background: `linear-gradient(135deg, #000000 0%, #0c0c0e 65%, ${colorHex}0c 100%)`,
+    borderColor: isHovered ? `${colorHex}44` : `${colorHex}15`,
+    boxShadow: isHovered ? `0 0 15px ${colorHex}0f` : 'none',
   };
 
   return (
@@ -41,7 +58,7 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
           <div className="space-y-1.5 flex-grow">
             <CardTitle 
               className="text-base font-semibold leading-tight line-clamp-1 transition-colors duration-300"
-              style={{ color: isHovered ? colorHex : '#ffffff' }}
+              style={{ color: isHovered && !isDarkOrGrey ? colorHex : '#ffffff' }}
             >
               {filament.name}
             </CardTitle>
