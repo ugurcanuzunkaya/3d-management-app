@@ -1,6 +1,6 @@
 import logging
 from typing import List, Optional
-from sqlmodel import Session, select
+from sqlmodel import Session, select, col
 from app.models.job import PrintJob, JobFilament
 from app.models.filament import Filament
 from app.schemas.job import PrintJobCreate, PrintJobUpdate
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class JobService:
     @staticmethod
     def list_jobs(session: Session, status: Optional[str] = None) -> List[PrintJob]:
-        statement = select(PrintJob).order_by(PrintJob.created_at)
+        statement = select(PrintJob).order_by(col(PrintJob.created_at))
         if status:
             statement = statement.where(PrintJob.status == status)
         return list(session.exec(statement).all())
@@ -87,7 +87,7 @@ class JobService:
             for fid, link in list(existing_links.items()):
                 if fid not in new_filament_data:
                     job.job_filaments.remove(link)
-            
+
             # Update or add new links
             for fid, grams in new_filament_data.items():
                 if fid in existing_links:

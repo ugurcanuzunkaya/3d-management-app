@@ -24,7 +24,9 @@ def get_job(job_id: int, session: Session = Depends(get_session)):
 
 
 @router.put("/{job_id}", response_model=PrintJobRead)
-def update_job(job_id: int, data: PrintJobUpdate, session: Session = Depends(get_session)):
+def update_job(
+    job_id: int, data: PrintJobUpdate, session: Session = Depends(get_session)
+):
     return JobService.update_job(session, job_id, data)
 
 

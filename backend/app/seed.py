@@ -154,7 +154,7 @@ def seed_data():
                 "printjob",
             ]:
                 try:
-                    session.execute(
+                    session.connection().execute(
                         text(
                             f"SELECT setval('{table}_id_seq', (SELECT max(id) FROM {table}))"
                         )
@@ -167,7 +167,7 @@ def seed_data():
 
 
 if __name__ == "__main__":
-    from .models import SQLModel
+    from sqlmodel import SQLModel
 
     SQLModel.metadata.drop_all(engine)
     init_db()

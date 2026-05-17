@@ -50,7 +50,6 @@ class BambuMQTTService:
 
             if "print" in payload:
                 print_data = payload["print"]
-                gcode_state = print_data.get("gcode_state")
 
                 # Throttle processing to once per 60 seconds for general updates
                 last_update = self.last_status.get("_internal_timestamp", 0)
@@ -69,8 +68,6 @@ class BambuMQTTService:
 
         except Exception as e:
             logger.error(f"Error parsing MQTT message: {e}")
-
-
 
     def manual_poll(self):
         if not self.host:
