@@ -59,6 +59,5 @@ class Filament(SQLModel, table=True):
     filament_color: Optional[FilamentColor] = Relationship(back_populates="filaments")
     job_filaments: List[JobFilament] = Relationship()
     jobs: List["PrintJob"] = Relationship(
-        sa_relationship_kwargs={"viewonly": True},
-        link_model=JobFilament
+        sa_relationship_kwargs={"viewonly": True}, link_model=JobFilament
     )

@@ -24,11 +24,8 @@ class PrintJob(SQLModel, table=True):
     # Relationships
     model: Optional["Model3D"] = Relationship(back_populates="jobs")
     filaments: List["Filament"] = Relationship(
-        sa_relationship_kwargs={"viewonly": True},
-        link_model=JobFilament
+        sa_relationship_kwargs={"viewonly": True}, link_model=JobFilament
     )
     job_filaments: List[JobFilament] = Relationship(
-        sa_relationship_kwargs={
-            "cascade": "all, delete-orphan"
-        }
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

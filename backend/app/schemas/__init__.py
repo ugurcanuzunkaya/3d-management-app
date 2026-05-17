@@ -11,6 +11,7 @@ from .filament import (
 )
 from .job import JobFilamentCreate, PrintJobCreate, PrintJobRead
 from .settings import StockSettingsUpdate, StockSettingsRead
+from .model3d import Model3DCreate, Model3DUpdate, Model3DRead, ModelExtractionResult
 
 __all__ = [
     "FilamentTypeCreate",
@@ -27,4 +28,8 @@ __all__ = [
     "PrintJobRead",
     "StockSettingsUpdate",
     "StockSettingsRead",
+    "Model3DCreate",
+    "Model3DUpdate",
+    "Model3DRead",
+    "ModelExtractionResult",
 ]
