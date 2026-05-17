@@ -2,7 +2,27 @@
 
 A premium, comprehensive management system for 3D printing workflows, specifically optimized for **Bambu Lab P2S** printers. This application streamlines inventory management, print job tracking, and cost calculation with a sleek, modern interface.
 
-![Dashboard Preview](https://via.placeholder.com/1200x600?text=3D+Management+App+Dashboard)
+## 📸 Visual Showcase
+
+### 📊 Dashboard Control Center
+![Dashboard Control Center](screenshots/dashboard.png)
+*Real-time control center featuring state-aware printer monitoring widgets and automated capacity gauges.*
+
+### 📦 3D Model Library & AI Spec Scanner
+![3D Model Library](screenshots/models.png)
+*Decoupled library managing dynamic specifications with multi-provider AI scanning grids (Gemini, Claude, OpenAI, Ollama).*
+
+### 📡 Printer Terminal Telemetry
+![Printer Terminal Telemetry](screenshots/printer.png)
+*Obsidian-black dynamic terminal card showing job progress, thermals, speed performance, and AMS feedback.*
+
+### 🎨 Filament Stock Tab
+![Filament Stock Tab](screenshots/stock.png)
+*Unified inventory overview showing weight summaries, color hex swatches, custom glows, and warning threshold states.*
+
+### 🛠️ System Control Settings
+![System Control Settings](screenshots/settings.png)
+*System-wide customizable parameters, brands, standard density indices, and active MQTT topics.*
 
 ## ✨ Features
 
