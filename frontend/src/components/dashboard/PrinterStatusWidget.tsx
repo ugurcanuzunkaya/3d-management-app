@@ -14,6 +14,7 @@ const PrinterStatusWidget = () => {
   const [mountTime] = useState(() => Date.now());
   const [lastValidDataTime, setLastValidDataTime] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 5000);
@@ -84,16 +85,16 @@ const PrinterStatusWidget = () => {
     }
 
     return (
-      <Card className="overflow-hidden border-none bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg">
+      <Card className="overflow-hidden border-none bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg animate-pulse">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-medium opacity-70">Printer Status</CardTitle>
-            <Activity className="h-4 w-4 text-gray-500 animate-pulse" />
+            <Activity className="h-4 w-4 text-gray-500" />
           </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8">
-            <Activity className="h-12 w-12 text-gray-700 mb-4 animate-pulse" />
+            <Activity className="h-12 w-12 text-gray-700 mb-4 animate-spin-slow" />
             <p className="text-gray-400 text-sm">Initializing connection...</p>
           </div>
         </CardContent>
@@ -111,16 +112,6 @@ const PrinterStatusWidget = () => {
   const totalLayers = status.total_layer_num || 0;
   const speedLvl = status.spd_lvl || 2;
 
-  const getStateColor = (state: string) => {
-    switch (state) {
-      case 'RUNNING': return 'bg-green-400 animate-pulse';
-      case 'PAUSE': return 'bg-yellow-400 animate-bounce';
-      case 'FINISH': return 'bg-blue-400';
-      case 'FAILED': return 'bg-red-400';
-      default: return 'bg-gray-400';
-    }
-  };
-
   const getSpeedLabel = (lvl: number) => {
     switch (lvl) {
       case 1: return "Silent";
@@ -131,17 +122,90 @@ const PrinterStatusWidget = () => {
     }
   };
 
+  // State-aware style generator for telemetry card
+  const getCardStyle = (state: string, hovered: boolean) => {
+    switch (state) {
+      case 'RUNNING':
+        return {
+          style: {
+            background: 'linear-gradient(135deg, #000000 0%, #09090b 50%, #022c22 100%)',
+            borderColor: hovered ? '#10b981' : 'color-mix(in srgb, #10b981 20%, #1c1c1f)',
+            boxShadow: hovered ? '0 0 20px rgba(16, 185, 129, 0.15)' : 'none',
+          },
+          dotColor: 'bg-emerald-400 animate-pulse',
+          textColor: 'text-emerald-400',
+          progressBg: 'bg-emerald-500',
+          progressShadow: 'shadow-[0_0_10px_rgba(16,185,129,0.5)]',
+        };
+      case 'PAUSE':
+        return {
+          style: {
+            background: 'linear-gradient(135deg, #000000 0%, #09090b 50%, #451a03 100%)',
+            borderColor: hovered ? '#f59e0b' : 'color-mix(in srgb, #f59e0b 20%, #1c1c1f)',
+            boxShadow: hovered ? '0 0 20px rgba(245, 158, 11, 0.15)' : 'none',
+          },
+          dotColor: 'bg-amber-400 animate-bounce',
+          textColor: 'text-amber-400',
+          progressBg: 'bg-amber-500',
+          progressShadow: 'shadow-[0_0_10px_rgba(245,158,11,0.5)]',
+        };
+      case 'FAILED':
+        return {
+          style: {
+            background: 'linear-gradient(135deg, #000000 0%, #09090b 50%, #450a0a 100%)',
+            borderColor: hovered ? '#ef4444' : 'color-mix(in srgb, #ef4444 20%, #1c1c1f)',
+            boxShadow: hovered ? '0 0 20px rgba(239, 68, 68, 0.15)' : 'none',
+          },
+          dotColor: 'bg-red-400 animate-pulse',
+          textColor: 'text-red-400',
+          progressBg: 'bg-red-500',
+          progressShadow: 'shadow-[0_0_10px_rgba(239,68,68,0.5)]',
+        };
+      case 'FINISH':
+        return {
+          style: {
+            background: 'linear-gradient(135deg, #000000 0%, #09090b 50%, #1e3a8a 100%)',
+            borderColor: hovered ? '#3b82f6' : 'color-mix(in srgb, #3b82f6 20%, #1c1c1f)',
+            boxShadow: hovered ? '0 0 20px rgba(59, 130, 246, 0.15)' : 'none',
+          },
+          dotColor: 'bg-blue-400',
+          textColor: 'text-blue-400',
+          progressBg: 'bg-blue-500',
+          progressShadow: 'shadow-[0_0_10px_rgba(59,130,246,0.5)]',
+        };
+      default: // IDLE
+        return {
+          style: {
+            background: 'linear-gradient(135deg, #000000 0%, #09090b 60%, #172554 100%)',
+            borderColor: hovered ? '#3b82f6' : 'color-mix(in srgb, #3b82f6 15%, #1c1c1f)',
+            boxShadow: hovered ? '0 0 20px rgba(59, 130, 246, 0.15)' : 'none',
+          },
+          dotColor: 'bg-blue-500 animate-pulse',
+          textColor: 'text-blue-400',
+          progressBg: 'bg-blue-500',
+          progressShadow: 'shadow-[0_0_10px_rgba(59,130,246,0.5)]',
+        };
+    }
+  };
+
+  const cardTheme = getCardStyle(gcodeState, isHovered);
+
   return (
-    <Card className="overflow-hidden border-none bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-xl">
+    <Card 
+      className="overflow-hidden border transition-all duration-300 text-white shadow-xl relative"
+      style={cardTheme.style}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <CardHeader className="pb-2 border-b border-white/10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${getStateColor(gcodeState)}`} />
-            <CardTitle className="text-sm font-bold uppercase tracking-wider">
+            <div className={`h-2 w-2 rounded-full ${cardTheme.dotColor}`} />
+            <CardTitle className="text-sm font-bold uppercase tracking-wider font-mono">
               {gcodeState}
             </CardTitle>
           </div>
-          <div className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">
+          <div className="text-[10px] bg-white/15 px-2 py-0.5 rounded-full font-mono font-medium">
             {getSpeedLabel(speedLvl)}
           </div>
         </div>
@@ -151,7 +215,7 @@ const PrinterStatusWidget = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-white/70">
               <Thermometer className="h-4 w-4" />
-              <span className="text-xs font-medium">Bed / Chamber / Nozzle</span>
+              <span className="text-xs font-medium">Bed / Cham / Nozzle</span>
             </div>
             <div className="text-lg font-bold">
               {bedTemp}° / {chamberTemp}° / {nozzleTemp}°
@@ -176,7 +240,7 @@ const PrinterStatusWidget = () => {
           </div>
           <div className="h-2 w-full rounded-full bg-white/20 overflow-hidden">
             <div
-              className="h-full bg-white transition-all duration-1000 ease-in-out shadow-[0_0_8px_rgba(255,255,255,0.5)]"
+              className={`h-full ${cardTheme.progressBg} ${cardTheme.progressShadow} transition-all duration-1000 ease-in-out`}
               style={{ width: `${progress}%` }}
             />
           </div>

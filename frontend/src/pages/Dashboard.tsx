@@ -13,6 +13,9 @@ const Dashboard = () => {
 
   // Calculate total inventory weight
   const totalWeightKg = (filaments?.reduce((acc, f) => acc + f.remaining_weight_g, 0) || 0) / 1000;
+  
+  // Dynamic weight progress compared to a reference 100kg warehouse target capacity
+  const weightProgressPercent = Math.min((totalWeightKg / 100) * 100, 100);
 
   return (
     <div className="space-y-8">
@@ -27,30 +30,42 @@ const Dashboard = () => {
           <PrinterStatusWidget />
         </div>
 
-        {/* Inventory Overview */}
+        {/* Inventory Overview Card (Now matching our premium left border style) */}
         <div className="lg:col-span-2">
-          <Card className="border-none shadow-md h-full bg-blue-50 dark:bg-blue-900/20">
+          <Card className="group relative overflow-hidden transition-all duration-300 border-l-4 border-l-indigo-500 hover:shadow-[0_0_20px_rgba(99,102,241,0.12)] hover:-translate-y-0.5 shadow-md h-full bg-white dark:bg-zinc-900">
             <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <CardTitle className="text-xl font-bold">Inventory Overview</CardTitle>
-              <Box className="w-6 h-6 text-blue-500" />
+              <CardTitle className="text-xl font-bold text-indigo-950 dark:text-indigo-50">Inventory Overview</CardTitle>
+              <Box className="w-6 h-6 text-indigo-500 transition-transform duration-300 group-hover:scale-110" />
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-bold tracking-tighter text-blue-600 dark:text-blue-400">
+                <span className="text-5xl font-bold tracking-tighter text-indigo-600 dark:text-indigo-400">
                   {filaments?.length || 0}
                 </span>
-                <span className="text-lg font-medium text-muted-foreground uppercase tracking-widest">
-                  Active Filaments
+                <span className="text-sm font-semibold text-indigo-950/60 dark:text-indigo-200/60 uppercase tracking-widest">
+                  Active Filament Spools
                 </span>
               </div>
 
-              <div className="pt-4 border-t border-blue-100 dark:border-blue-800">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Stock Weight</span>
-                  <span className="text-2xl font-bold">{totalWeightKg.toFixed(2)} kg</span>
+              <div className="pt-6 border-t border-indigo-100/50 dark:border-indigo-950/50">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    Total Warehouse Weight
+                  </span>
+                  <span className="text-2xl font-bold text-indigo-950 dark:text-indigo-50">
+                    {totalWeightKg.toFixed(2)}{' '}
+                    <span className="text-sm font-semibold text-indigo-500">kg</span>
+                  </span>
                 </div>
-                <div className="mt-2 h-2 w-full rounded-full bg-blue-100 dark:bg-blue-900 overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: '65%' }} />
+                <div className="h-3 w-full rounded-full bg-indigo-100/50 dark:bg-indigo-950/50 overflow-hidden">
+                  <div 
+                    className="h-full bg-indigo-600 dark:bg-indigo-500 rounded-full transition-all duration-1000 ease-in-out shadow-[0_0_8px_rgba(99,102,241,0.4)]" 
+                    style={{ width: `${weightProgressPercent}%` }} 
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5 font-medium">
+                  <span>0 kg</span>
+                  <span>Capacity Target: 100 kg</span>
                 </div>
               </div>
             </CardContent>
