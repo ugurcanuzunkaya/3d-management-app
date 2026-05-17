@@ -93,9 +93,10 @@ const FilamentFormModal = ({
         price_per_kg: parseFloat(formData.price_per_kg),
         remaining_weight_g: parseFloat(formData.remaining_weight_g)
       });
-    } catch (error: any) {
-      console.error('Error creating custom type or color:', error);
-      alert(error?.message || 'Failed to create custom type or color. Please try again.');
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error('Error creating custom type or color:', err);
+      alert(err.message || 'Failed to create custom type or color. Please try again.');
     } finally {
       setLocalPending(false);
     }
