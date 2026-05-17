@@ -477,24 +477,48 @@ class AIService:
                 import ollama
 
                 client = ollama.Client(host=self.settings.ollama_base_url)
-                # Fallback to standard Ollama vision model (llava)
-                response = client.generate(
-                    model="llava",
-                    prompt="Analyze this 3D model image or slicer screenshot. Extract the technical parameters. Return the result in a ```json ``` block matching the schema:\n"
-                    + json.dumps(ModelExtractionResult.model_json_schema()),
-                    images=[base64_image],
-                )
-                content = (
-                    response.response
-                    if hasattr(response, "response")
-                    else (
-                        response.get("response", "")
-                        if isinstance(response, dict)
-                        else ""
-                    )
-                )
-                data = self._clean_and_parse_json(content or "")
-                return ModelExtractionResult.model_validate(data)
+                if active_provider == "ollama_gemma4":
+                    models_to_try = [
+                        self.settings.ollama_model_gemma,
+                        self.settings.ollama_model_qwen,
+                    ]
+                else:
+                    models_to_try = [
+                        self.settings.ollama_model_qwen,
+                        self.settings.ollama_model_gemma,
+                    ]
+
+                last_err = None
+                for model_name in models_to_try:
+                    try:
+                        logger.info(
+                            f"Attempting Ollama image analysis with model: {model_name}"
+                        )
+                        response = client.generate(
+                            model=model_name,
+                            prompt="Analyze this 3D model image or slicer screenshot. Extract the technical parameters. Return the result in a ```json ``` block matching the schema:\n"
+                            + json.dumps(ModelExtractionResult.model_json_schema()),
+                            images=[base64_image],
+                        )
+                        content = (
+                            response.response
+                            if hasattr(response, "response")
+                            else (
+                                response.get("response", "")
+                                if isinstance(response, dict)
+                                else ""
+                            )
+                        )
+                        data = self._clean_and_parse_json(content or "")
+                        return ModelExtractionResult.model_validate(data)
+                    except Exception as ex:
+                        logger.warning(
+                            f"Ollama image analysis failed with model {model_name}: {ex}"
+                        )
+                        last_err = ex
+
+                if last_err:
+                    raise last_err
 
         except Exception as e:
             logger.error(
