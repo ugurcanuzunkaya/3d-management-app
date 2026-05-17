@@ -50,10 +50,11 @@ The application uses a custom-built design system focused on:
 ## 📁 Component Architecture
 
 - **`src/components/stock/`**: Specialized inventory components (Summary cards, search bar, filament cards).
+- **`src/components/models/`**: Dedicated 3D Model components (Model cards, AI scanners, model creation/edit forms).
 - **`src/components/ui/`**: Reusable base components (Buttons, Inputs, Modals).
 - **`src/components/jobs/`**: Print job management components.
 - **`src/components/printer/`**: Real-time printer terminal and status views.
-- **`src/pages/`**: Main application views (Dashboard, Filament Stock, Settings, Jobs, Printer, Library).
+- **`src/pages/`**: Main application views (Dashboard, Filament Stock, Settings, Jobs, Printer, ModelLibrary).
 
 ## 🧪 Quality Control
 

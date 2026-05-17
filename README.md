@@ -7,9 +7,11 @@ A premium, comprehensive management system for 3D printing workflows, specifical
 ## ✨ Features
 
 - **Inventory 2.0**: Normalized tracking of filaments by type, color (with hex swatches), and status.
+- **Model Library**: Complete management of 3D slicing parameters, physical specifications, and assets.
+- **AI-Assisted Specs & Scanners**: Automatically extract technical specs (estimated weight, print time, bed/nozzle temperatures, dimensions) using cloud APIs (Gemini, Claude, OpenAI) or fully local models via Ollama (`qwen3.5` & `gemma4`). Includes fallback scraping using Firecrawl or Playwright browser automation!
+- **Premium Platform Styling**: Sourced models from **MakerWorld** and **Printables** feature gorgeously styled custom card layouts with black-and-emerald / black-and-orange neon gradients, micro-borders, glowing icons, and clean white text.
 - **Visual Stock Summary**: At-a-glance metrics for total weight, inventory value, and low stock alerts.
 - **Real-time MQTT Tracking**: Integration with Bambu Lab printers for automatic job logging (In Progress).
-- **AI-Assisted Specs**: Extract technical parameters (weight, temp, time) from Makerworld/Printables URLs.
 - **Smart Cost Engine**: Calculates total production cost based on electricity, power usage, and filament price with customizable markups.
 - **Modular Settings**: Manage filament types, colors, and system-wide inventory defaults.
 

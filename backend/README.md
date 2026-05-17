@@ -59,7 +59,10 @@ The backend engine for the 3D Management App, built with FastAPI and SQLModel. I
 - **Types & Colors**: `/api/filament-types`, `/api/filament-colors`
 - **Print Jobs**: `/api/printjobs`
 - **Settings**: `/api/stock-settings`, `/api/settings`
-- **AI Extraction**: `POST /api/models/extract`
+- **3D Models CRUD**: `/api/models` (Endpoints for listing, creating, editing, and deleting 3D models)
+- **AI Scanners**: 
+  - `POST /api/models/analyze-link` (Scrapes and extracts model specs from a URL)
+  - `POST /api/models/analyze-image` (Performs vision-based extraction on slicer images or model screenshots)
 
 ## 🧪 Testing & Quality
 
