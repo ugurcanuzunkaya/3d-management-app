@@ -13,7 +13,8 @@ def ai_service():
         return service
 
 
-def test_extract_tech_params_from_text(ai_service):
+@pytest.mark.anyio
+async def test_extract_tech_params_from_text(ai_service):
     mock_result = ModelExtractionResult(
         name="Test Model",
         weight_g=50.0,
@@ -25,10 +26,13 @@ def test_extract_tech_params_from_text(ai_service):
         tech_details={},
     )
 
+    async def mock_coro(*args, **kwargs):
+        return mock_result
+
     with patch.object(
-        ai_service, "extract_tech_params_from_text", return_value=mock_result
+        ai_service, "extract_tech_params_from_text", side_effect=mock_coro
     ):
-        params = ai_service.extract_tech_params_from_text(
+        params = await ai_service.extract_tech_params_from_text(
             "This model weighs 50g and uses PLA."
         )
         assert params.weight_g == 50.0
