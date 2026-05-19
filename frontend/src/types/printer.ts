@@ -17,3 +17,12 @@ export interface PrinterStatus {
   info?: { temp?: number };
   ams?: { ams?: Array<{ humidity_raw?: number; humidity?: number; temp?: number }> };
 }
+
+export interface Printer {
+  id: number;
+  name: string;
+  ip_address: string;
+  serial_number: string;
+  access_code: string;
+  is_active: boolean;
+}
