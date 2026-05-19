@@ -129,13 +129,28 @@ class JobService:
 
     @staticmethod
     def delete_all_jobs(session: Session) -> None:
+        # 1. Fetch all JobFilament links
+        links = session.exec(select(JobFilament)).all()
+
+        # 2. Accumulate weight updates in memory
+        filament_updates = {}
+        for link in links:
+            filament_updates[link.filament_id] = (
+                filament_updates.get(link.filament_id, 0.0) + link.grams_used
+            )
+
+        # 3. Batch fetch all affected filaments
+        if filament_updates:
+            affected_ids = list(filament_updates.keys())
+            filaments = session.exec(
+                select(Filament).where(col(Filament.id).in_(affected_ids))
+            ).all()
+            for filament in filaments:
+                filament.remaining_weight_g += filament_updates[filament.id]
+                session.add(filament)
+
+        # 4. Delete all print jobs
         jobs = session.exec(select(PrintJob)).all()
         for job in jobs:
-            # Revert stock
-            for link in job.job_filaments:
-                filament = session.get(Filament, link.filament_id)
-                if filament:
-                    filament.remaining_weight_g += link.grams_used
-                    session.add(filament)
             session.delete(job)
         session.commit()

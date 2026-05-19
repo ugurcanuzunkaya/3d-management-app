@@ -59,11 +59,14 @@ class AIService:
         if self.openai_key:
             try:
                 self.openai_client = openai.OpenAI(api_key=self.openai_key)
+                self.async_openai_client = openai.AsyncOpenAI(api_key=self.openai_key)
             except Exception as e:
                 logger.error(f"Failed to initialize OpenAI Client: {e}")
                 self.openai_client = None
+                self.async_openai_client = None
         else:
             self.openai_client = None
+            self.async_openai_client = None
             logger.warning("OPENAI_API_KEY not set. OpenAI features will be disabled.")
 
         # 4. Anthropic Client (Uses claude-3-5-haiku for text, claude-3-5-sonnet for images)
@@ -73,11 +76,16 @@ class AIService:
         if self.anthropic_key:
             try:
                 self.anthropic_client = anthropic.Anthropic(api_key=self.anthropic_key)
+                self.async_anthropic_client = anthropic.AsyncAnthropic(
+                    api_key=self.anthropic_key
+                )
             except Exception as e:
                 logger.error(f"Failed to initialize Anthropic Client: {e}")
                 self.anthropic_client = None
+                self.async_anthropic_client = None
         else:
             self.anthropic_client = None
+            self.async_anthropic_client = None
             logger.warning(
                 "ANTHROPIC_API_KEY not set. Claude features will be disabled."
             )
@@ -108,19 +116,21 @@ class AIService:
             logger.info(f"Scraping with Playwright (Tier 2): {url}")
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
-                context = await browser.new_context(
-                    user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                )
-                page = await context.new_page()
-                # Set a realistic viewport and headers
-                await page.goto(url, wait_until="domcontentloaded", timeout=15000)
-                await page.wait_for_timeout(
-                    3000
-                )  # Safe buffer for hydration on SPA (Makerworld/Printables)
-                text_content = await page.locator("body").inner_text()
-                await browser.close()
-                if text_content and len(text_content.strip()) > 100:
-                    return text_content
+                try:
+                    context = await browser.new_context(
+                        user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    )
+                    page = await context.new_page()
+                    # Set a realistic viewport and headers
+                    await page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                    await page.wait_for_timeout(
+                        3000
+                    )  # Safe buffer for hydration on SPA (Makerworld/Printables)
+                    text_content = await page.locator("body").inner_text()
+                    if text_content and len(text_content.strip()) > 100:
+                        return text_content
+                finally:
+                    await browser.close()
         except Exception as e:
             logger.warning(
                 f"Playwright scrape failed, trying BeautifulSoup fallback: {e}"
@@ -198,7 +208,7 @@ class AIService:
         text = text.strip()
         return json.loads(text)
 
-    def extract_tech_params_from_text(
+    async def extract_tech_params_from_text(
         self, text: str, provider: str = "gemini"
     ) -> ModelExtractionResult:
         """Extracts technical 3D model properties from text content using the chosen active AI Provider."""
@@ -229,7 +239,7 @@ class AIService:
 
         try:
             if active_provider == "gemini" and self.gemini_client:
-                response = self.gemini_client.models.generate_content(
+                response = await self.gemini_client.aio.models.generate_content(
                     model="gemini-3.1-flash-lite",
                     contents=prompt,
                     config=types.GenerateContentConfig(
@@ -240,8 +250,8 @@ class AIService:
                 data = json.loads(str(response.text))
                 return ModelExtractionResult.model_validate(data)
 
-            elif active_provider == "openai" and self.openai_client:
-                response = self.openai_client.chat.completions.create(
+            elif active_provider == "openai" and self.async_openai_client:
+                response = await self.async_openai_client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[
                         {
@@ -256,11 +266,11 @@ class AIService:
                 data = json.loads(str(response.choices[0].message.content))
                 return ModelExtractionResult.model_validate(data)
 
-            elif active_provider == "claude" and self.anthropic_client:
+            elif active_provider == "claude" and self.async_anthropic_client:
                 from typing import Any
 
                 claude_text_payload: Any = [{"role": "user", "content": prompt}]
-                response = self.anthropic_client.messages.create(
+                response = await self.async_anthropic_client.messages.create(
                     model="claude-3-5-haiku-20241022",
                     max_tokens=4000,
                     messages=claude_text_payload,
@@ -273,7 +283,7 @@ class AIService:
             elif active_provider in ("ollama_qwen3.5", "ollama_gemma4"):
                 import ollama
 
-                client = ollama.Client(host=self.settings.ollama_base_url)
+                client = ollama.AsyncClient(host=self.settings.ollama_base_url)
                 if active_provider == "ollama_gemma4":
                     models_to_try = [
                         self.settings.ollama_model_gemma,
@@ -302,7 +312,7 @@ class AIService:
                             },
                             {"role": "user", "content": prompt},
                         ]
-                        response = client.chat(
+                        response = await client.chat(
                             model=model_name,
                             messages=messages,
                             format="json",
@@ -338,7 +348,7 @@ class AIService:
                             },
                             {"role": "user", "content": prompt},
                         ]
-                        response = client.chat(
+                        response = await client.chat(
                             model=model_name,
                             messages=messages,
                             options={"temperature": 0.1},
@@ -375,7 +385,7 @@ class AIService:
 
         raise ValueError(f"Unsupported or inactive AI Provider: {active_provider}")
 
-    def extract_tech_params_from_image(
+    async def extract_tech_params_from_image(
         self, image_bytes: bytes, mime_type: str, provider: str = "gemini"
     ) -> ModelExtractionResult:
         """Extracts technical 3D model properties from an uploaded image using the chosen active AI Provider."""
@@ -404,7 +414,7 @@ class AIService:
 
         try:
             if active_provider == "gemini" and self.gemini_client:
-                response = self.gemini_client.models.generate_content(
+                response = await self.gemini_client.aio.models.generate_content(
                     model="gemini-3.1-flash-lite",
                     contents=[
                         types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
@@ -418,9 +428,9 @@ class AIService:
                 data = json.loads(str(response.text))
                 return ModelExtractionResult.model_validate(data)
 
-            elif active_provider == "openai" and self.openai_client:
+            elif active_provider == "openai" and self.async_openai_client:
                 base64_image = base64.b64encode(image_bytes).decode("utf-8")
-                response = self.openai_client.chat.completions.create(
+                response = await self.async_openai_client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[
                         {
@@ -442,7 +452,7 @@ class AIService:
                 data = json.loads(str(response.choices[0].message.content))
                 return ModelExtractionResult.model_validate(data)
 
-            elif active_provider == "claude" and self.anthropic_client:
+            elif active_provider == "claude" and self.async_anthropic_client:
                 from typing import Any
 
                 base64_image = base64.b64encode(image_bytes).decode("utf-8")
@@ -462,7 +472,7 @@ class AIService:
                         ],
                     }
                 ]
-                response = self.anthropic_client.messages.create(
+                response = await self.async_anthropic_client.messages.create(
                     model="claude-3-5-sonnet-20241022",
                     max_tokens=4000,
                     messages=claude_payload,
@@ -476,7 +486,7 @@ class AIService:
                 base64_image = base64.b64encode(image_bytes).decode("utf-8")
                 import ollama
 
-                client = ollama.Client(host=self.settings.ollama_base_url)
+                client = ollama.AsyncClient(host=self.settings.ollama_base_url)
                 if active_provider == "ollama_gemma4":
                     models_to_try = [
                         self.settings.ollama_model_gemma,
@@ -494,7 +504,7 @@ class AIService:
                         logger.info(
                             f"Attempting Ollama image analysis with model: {model_name}"
                         )
-                        response = client.generate(
+                        response = await client.generate(
                             model=model_name,
                             prompt="Analyze this 3D model image or slicer screenshot. Extract the technical parameters. Return the result in a ```json ``` block matching the schema:\n"
                             + json.dumps(ModelExtractionResult.model_json_schema()),

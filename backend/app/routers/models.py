@@ -88,7 +88,7 @@ async def analyze_link(
 
     # Analyze scraped content
     try:
-        extraction_result = ai_service.extract_tech_params_from_text(
+        extraction_result = await ai_service.extract_tech_params_from_text(
             scraped_text, provider=provider
         )
         return extraction_result
@@ -117,7 +117,7 @@ async def analyze_image(
 
     try:
         image_bytes = await file.read()
-        extraction_result = ai_service.extract_tech_params_from_image(
+        extraction_result = await ai_service.extract_tech_params_from_image(
             image_bytes, mime_type, provider=provider
         )
         return extraction_result
@@ -140,7 +140,7 @@ async def extract_model(
     if not scraped_text:
         raise HTTPException(status_code=400, detail="Failed to fetch markdown from URL")
 
-    extraction = ai_service.extract_tech_params_from_text(
+    extraction = await ai_service.extract_tech_params_from_text(
         scraped_text, provider="gemini"
     )
 
