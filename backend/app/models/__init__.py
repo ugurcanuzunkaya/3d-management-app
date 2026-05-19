@@ -2,6 +2,7 @@ from .settings import Settings, StockSettings
 from .filament import FilamentType, FilamentColor, FilamentSeries, Filament
 from .model3d import Model3D
 from .job import PrintJob, JobFilament
+from .printer import Printer
 
 __all__ = [
     "Settings",
@@ -13,4 +14,5 @@ __all__ = [
     "Model3D",
     "PrintJob",
     "JobFilament",
+    "Printer",
 ]
