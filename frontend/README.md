@@ -58,6 +58,7 @@ The application uses a custom-built design system focused on:
 ## 📁 Component Architecture
 
 - **`src/components/stock/`**: Specialized inventory components (Summary cards, search bar, filament cards).
+- **`src/components/dashboard/`**: Dashboard overview metrics and sliding multi-printer carousel telemetry cards (`PrinterStatusWidget.tsx`).
 - **`src/components/models/`**: Dedicated 3D Model components (Model cards, AI scanners, model creation/edit forms).
 - **`src/components/ui/`**: Reusable base components (Buttons, Inputs, Modals).
 - **`src/components/jobs/`**: Print job management components.

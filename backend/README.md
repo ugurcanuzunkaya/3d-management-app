@@ -57,6 +57,7 @@ The backend engine for the 3D Management App, built with FastAPI and SQLModel. I
 
 - **Filaments**: `GET`, `POST`, `PUT`, `DELETE` on `/api/filaments`
 - **Types & Colors**: `/api/filament-types`, `/api/filament-colors`
+- **Printers**: `GET`, `POST`, `PUT`, `DELETE` on `/api/printers` (Multi-machine registry) and `GET /api/printers/status` (Consolidated real-time state engine)
 - **Print Jobs**: `/api/printjobs`
 - **Settings**: `/api/stock-settings`, `/api/settings`
 - **3D Models CRUD**: `/api/models` (Endpoints for listing, creating, editing, and deleting 3D models)

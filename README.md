@@ -36,7 +36,7 @@ A premium, comprehensive management system for 3D printing workflows, specifical
 - **AI-Assisted Specs & Scanners**: Automatically extract technical specs (estimated weight, print time, bed/nozzle temperatures, dimensions) using cloud APIs (Gemini, Claude, OpenAI) or fully local models via Ollama (`qwen3.5` & `gemma4`). Includes fallback scraping using Firecrawl or Playwright browser automation!
 - **Premium Platform Styling**: Sourced models from **MakerWorld** and **Printables** feature gorgeously styled custom card layouts with black-and-emerald / black-and-orange neon gradients, micro-borders, glowing icons, and clean white text.
 - **Visual Stock Summary**: At-a-glance metrics for total weight, inventory value, and low stock alerts.
-- **Real-time MQTT Tracking**: Integration with Bambu Lab printers for automatic job logging (In Progress).
+- **Real-time MQTT Tracking & Fleet Manager**: Cluster multiple active Bambu Lab printers into a unified visual fleet. Features dynamic, state-aware telemetry cards detailing nozzle/bed temperatures, mechanical speed multipliers, progress percentages, active layer heights, and AMS parameters. Includes connection health detection and credential visibility toggles.
 - **Smart Cost Engine**: Calculates total production cost based on electricity, power usage, and filament price with customizable markups.
 - **Modular Settings**: Manage filament types, colors, and system-wide inventory defaults.
 
@@ -99,8 +99,8 @@ We have structured our expansion strategy into logical, high-impact development 
 ### Done & Delivered 🚀
 *   **[x] Phase 1: Core Inventory & Color normalization (Completed)**
     *   *Features*: Complete relational database schema tracking filament spools, automatic consumption tallies, color hex swatches, custom threshold limits, and low-stock alarms. Included modular global settings.
-*   **[x] Phase 2: Asynchronous MQTT Telemetry Services (Completed)**
-    *   *Features*: Real-time IoT background listeners tracking Bambu Lab printer channels. Crafted the custom-themed Obsidian black status monitors, changing gradient mixes based on GCODE execution states (Running, Pause, Failed, Idle). Live nozzle/bed thermals, speed multipliers, and AMS humidity metrics.
+*   **[x] Phase 2: Asynchronous MQTT Telemetry & Multi-Printer Fleet Manager (Completed)**
+    *   *Features*: Real-time IoT background listeners tracking multiple Bambu Lab printers. Crafted a Master-Detail registry view, dynamic sliding telemetry carousels, and obsidian-black status monitors. Added connection response timeout rules (offline flag triggers) and client credentials privacy toggle.
 *   **[x] Phase 3: AI Slicing Spectrometer & Web Scraper (Completed)**
     *   *Features*: A decoupled 3D Model Library featuring drag-and-drop vision scanning (multipart images) and automated link scraping (Playwright + Firecrawl). Backed by Gemini, Claude, OpenAI, and local Ollama (`qwen3.5` & `gemma4`) model extractions. Gorgeously themed site-provider cards (Printables orange-glow and MakerWorld green-glow themes).
 
@@ -110,9 +110,8 @@ We have structured our expansion strategy into logical, high-impact development 
     *   *Automated Depletion*: Automatically decrement spool remaining weights upon successful print job execution, updating the warehouse log.
     *   *ROI Margins Deck*: Interactive graphs comparing raw material costs (filament + wear + electricity) against sales value to chart operational return on investment.
     *   *Print Reports*: Exportable PDF print logs documenting filament color distributions, monthly production volumes, and machine failure frequencies.
-*   **[ ] Phase 5: Smart Print Queue & Multi-Machine Clusters**
-    *   *Global Queue Deck*: A centralized priority-ranked spool queue. Queue up sliced files, set print priorities, and automatically route tasks to idle nodes.
-    *   *Machine Registry*: Scale the telemetry deck to cluster multiple active Bambu Lab printers or other network-connected nodes into a grouped visual fleet.
+*   **[ ] Phase 5: Smart Print Queue & dispatching**
+    *   *Global Queue Deck*: A centralized priority-ranked spool queue. Queue up sliced files, set print priorities, and route tasks to idle nodes.
     *   *Color-Matching Dispatcher*: Auto-assign prints to nodes based on matching active AMS slots with the material requirements parsed by our AI spectrometer.
     *   *Maintenance Logbook*: Monitor component wear (nozzle, lead screws, belt tension profiles) prompting custom maintenance alerts based on active operating run-times.
 *   **[ ] Phase 6: PWA Mobile Companion & Push Notifications**
