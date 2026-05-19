@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import type { Model3D } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -16,6 +17,30 @@ const ModelCard = ({ model, onEdit, onDelete }: ModelCardProps) => {
   const nozzleTemp = tech_details?.nozzle_temp;
   const bedTemp = tech_details?.bed_temp;
   const dimensions = tech_details?.dimensions;
+
+  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
+    const saved = localStorage.getItem('showPersonalInfo');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [privacySettings, setPrivacySettings] = useState(() => {
+    const saved = localStorage.getItem('privacySettings');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const savedShow = localStorage.getItem('showPersonalInfo');
+      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
+      const savedPriv = localStorage.getItem('privacySettings');
+      setPrivacySettings(savedPriv ? JSON.parse(savedPriv) : {});
+    };
+    window.addEventListener('credentials-visibility-change', handleUpdate);
+    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
+  }, []);
+
+  const isMasked = (key: string) => {
+    return !showPersonalInfo && !!privacySettings[key];
+  };
 
   const getSourceBadge = (url?: string) => {
     if (!url) return null;
@@ -44,7 +69,7 @@ const ModelCard = ({ model, onEdit, onDelete }: ModelCardProps) => {
         rel="noopener noreferrer"
         className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border transition-all font-medium ${colorClass}`}
       >
-        {label}
+        {isMasked('maskLibraryModelName') ? '•••••' : label}
         <ExternalLink className="h-3 w-3" />
       </a>
     );
@@ -80,7 +105,7 @@ const ModelCard = ({ model, onEdit, onDelete }: ModelCardProps) => {
               ? 'text-white group-hover:text-orange-400'
               : 'text-foreground group-hover:text-primary'
           }`}>
-            {name}
+            {isMasked('maskLibraryModelName') ? '•••••' : name}
           </CardTitle>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <Button
@@ -123,7 +148,7 @@ const ModelCard = ({ model, onEdit, onDelete }: ModelCardProps) => {
                 ? 'bg-orange-950/60 text-orange-300 border-orange-800/40'
                 : 'bg-muted text-muted-foreground border-zinc-200/50'
             }`}>
-              {filamentType}
+              {isMasked('maskLibraryModelName') ? '•••••' : filamentType}
             </span>
           )}
         </div>
@@ -139,25 +164,31 @@ const ModelCard = ({ model, onEdit, onDelete }: ModelCardProps) => {
         }`}>
           <div className="flex items-center gap-2">
             <Scale className={`h-3.5 w-3.5 ${isDarkCard ? 'text-orange-400' : 'text-orange-500'}`} />
-            <span>{estimated_weight_g > 0 ? `${estimated_weight_g}g` : '--'}</span>
+            <span>{isMasked('maskLibraryModelName') ? '•••' : (estimated_weight_g > 0 ? `${estimated_weight_g}g` : '--')}</span>
           </div>
 
           <div className="flex items-center gap-2">
             <Clock className={`h-3.5 w-3.5 ${isDarkCard ? 'text-emerald-400' : 'text-emerald-600'}`} />
-            <span>{printTime ? formatPrintTime(printTime) : '--'}</span>
+            <span>{isMasked('maskLibraryModelName') ? '•••' : (printTime ? formatPrintTime(printTime) : '--')}</span>
           </div>
 
           <div className="flex items-center gap-2">
             <Thermometer className={`h-3.5 w-3.5 ${isDarkCard ? 'text-rose-400' : 'text-rose-500'}`} />
             <span>
-              {nozzleTemp ? `${nozzleTemp}°C` : '--'}
-              {bedTemp ? ` / ${bedTemp}°C` : ''}
+              {isMasked('maskLibraryModelName') ? (
+                '•••'
+              ) : (
+                <>
+                  {nozzleTemp ? `${nozzleTemp}°C` : '--'}
+                  {bedTemp ? ` / ${bedTemp}°C` : ''}
+                </>
+              )}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             <Box className={`h-3.5 w-3.5 ${isDarkCard ? 'text-sky-400' : 'text-blue-500'}`} />
-            <span className="truncate">{dimensions || '--'}</span>
+            <span className="truncate">{isMasked('maskLibraryModelName') ? '•••' : (dimensions || '--')}</span>
           </div>
         </div>
       </CardContent>

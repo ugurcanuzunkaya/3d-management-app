@@ -6,11 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Activity, Thermometer, Clock,
-  Gauge, Box, RefreshCw, Plus, Edit2, Trash2, X,
-  Eye, EyeOff
+  Gauge, Box, RefreshCw, Plus, Edit2, Trash2, X
 } from 'lucide-react';
 import api from '@/lib/api';
 import type { Printer } from '@/types';
+import { PrinterSkeleton } from '@/components/ui/Skeleton';
 
 interface TelemetryStatus {
   last_updated?: number;
@@ -41,7 +41,25 @@ const PrinterPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [lastManualPoll, setLastManualPoll] = useState<Date | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [showPersonalInfo, setShowPersonalInfo] = useState(false);
+  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
+    const saved = localStorage.getItem('showPersonalInfo');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [privacySettings, setPrivacySettings] = useState(() => {
+    const saved = localStorage.getItem('privacySettings');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const savedShow = localStorage.getItem('showPersonalInfo');
+      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
+      const savedPriv = localStorage.getItem('privacySettings');
+      setPrivacySettings(savedPriv ? JSON.parse(savedPriv) : {});
+    };
+    window.addEventListener('credentials-visibility-change', handleUpdate);
+    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
+  }, []);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -272,25 +290,21 @@ const PrinterPage = () => {
 
   const activeState = selectedPrinter ? getPrinterStatusInfo(selectedPrinter, status, now) : null;
 
+  const isMasked = (key: string) => {
+    return !showPersonalInfo && !!privacySettings[key];
+  };
+
   return (
     <div className="space-y-8 pb-12">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-50 dark:to-zinc-400 bg-clip-text text-transparent">
-            Printers Manager
+            {isMasked('maskPrinterTitle') ? '•••••' : 'Printers Manager'}
           </h1>
           <p className="text-muted-foreground">Monitor and manage your Bambu Lab 3D printer fleet.</p>
         </div>
         <div className="flex items-center gap-2 self-start md:self-center">
-          <Button
-            variant="outline"
-            onClick={() => setShowPersonalInfo(!showPersonalInfo)}
-            className="gap-2 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-          >
-            {showPersonalInfo ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
-            {showPersonalInfo ? 'Hide Credentials' : 'Show Credentials'}
-          </Button>
           <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-all">
             <Plus className="w-4 h-4" />
             Add Printer
@@ -299,10 +313,7 @@ const PrinterPage = () => {
       </div>
 
       {isLoadingPrinters ? (
-        <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4">
-          <Activity className="w-12 h-12 text-indigo-500 animate-spin" />
-          <p className="text-muted-foreground font-medium">Loading printer registry...</p>
-        </div>
+        <PrinterSkeleton />
       ) : !printers || printers.length === 0 ? (
         /* Empty State */
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-zinc-50/30 dark:bg-zinc-950/10">
@@ -345,13 +356,13 @@ const PrinterPage = () => {
                     <CardContent className="p-4 flex items-center justify-between">
                       <div className="space-y-1">
                         <div className="font-semibold text-white flex items-center gap-2">
-                          {printer.name}
+                          {isMasked('maskPrinterTelemetryName') ? '•••••' : printer.name}
                           {!printer.is_active && (
                             <span className="text-[10px] bg-white/10 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700">Disabled</span>
                           )}
                         </div>
                         <div className="text-xs text-zinc-400 font-mono">
-                          {showPersonalInfo ? printer.ip_address : '•••.•••.•••.•••'}
+                          {(showPersonalInfo || privacySettings.maskPrinterIp === false) ? printer.ip_address : '•••.•••.•••.•••'}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -385,11 +396,11 @@ const PrinterPage = () => {
                   <CardContent className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-3">
-                        <h2 className="text-2xl font-bold text-white">{selectedPrinter.name}</h2>
+                        <h2 className="text-2xl font-bold text-white">{isMasked('maskPrinterTelemetryName') ? '•••••' : selectedPrinter.name}</h2>
                         <div className={`h-2.5 w-2.5 rounded-full ${activeState.color}`} />
                       </div>
                       <p className="text-xs text-zinc-400 font-mono mt-1">
-                        Serial: {showPersonalInfo ? selectedPrinter.serial_number : '••••••••••••'} | Host: {showPersonalInfo ? selectedPrinter.ip_address : '•••.•••.•••.•••'}
+                        Serial: {(showPersonalInfo || privacySettings.maskPrinterSerial === false) ? selectedPrinter.serial_number : '••••••••••••'} | Host: {(showPersonalInfo || privacySettings.maskPrinterIp === false) ? selectedPrinter.ip_address : '•••.•••.•••.•••'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 self-start md:self-center">
@@ -422,7 +433,7 @@ const PrinterPage = () => {
                     <Activity className="w-12 h-12 text-red-500 opacity-60 mx-auto mb-4 animate-pulse" />
                     <h3 className="font-semibold text-lg text-red-400">Printer Offline</h3>
                     <p className="text-xs text-zinc-400 max-w-md mx-auto mt-1 mb-6">
-                      No telemetry packets have been received from IP {showPersonalInfo ? selectedPrinter.ip_address : '•••.•••.•••.•••'} in the last {status?.last_updated ? Math.floor((now - status.last_updated * 1000) / 60000) : 'several'} minutes. Check if the printer is powered on and connected to the same local network.
+                      No telemetry packets have been received from IP {(showPersonalInfo || privacySettings.maskPrinterIp === false) ? selectedPrinter.ip_address : '•••.•••.•••.•••'} in the last {status?.last_updated ? Math.floor((now - status.last_updated * 1000) / 60000) : 'several'} minutes. Check if the printer is powered on and connected to the same local network.
                     </p>
                     <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['all-printer-statuses'] })} className="border-zinc-700 hover:bg-zinc-900 text-white">
                       Recheck Connection
@@ -473,20 +484,20 @@ const PrinterPage = () => {
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-zinc-400">Extruder Nozzle</span>
                             <div className="text-right">
-                              <span className="text-lg font-bold text-white">{Math.round(status.nozzle_temper || 0)}°C</span>
-                              <div className="text-[10px] text-zinc-500">Target: {status.nozzle_target_temper || 0}°C</div>
+                              <span className="text-lg font-bold text-white">{isMasked('maskPrinterTelemetryName') ? '••' : Math.round(status.nozzle_temper || 0)}°C</span>
+                              <div className="text-[10px] text-zinc-500">Target: {isMasked('maskPrinterTelemetryName') ? '••' : (status.nozzle_target_temper || 0)}°C</div>
                             </div>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-zinc-400">Heated Bed</span>
                             <div className="text-right">
-                              <span className="text-lg font-bold text-white">{Math.round(status.bed_temper || 0)}°C</span>
-                              <div className="text-[10px] text-zinc-500">Target: {status.bed_target_temper || 0}°C</div>
+                              <span className="text-lg font-bold text-white">{isMasked('maskPrinterTelemetryName') ? '••' : Math.round(status.bed_temper || 0)}°C</span>
+                              <div className="text-[10px] text-zinc-500">Target: {isMasked('maskPrinterTelemetryName') ? '••' : (status.bed_target_temper || 0)}°C</div>
                             </div>
                           </div>
                           <div className="flex justify-between items-center pt-2 border-t border-zinc-800">
                             <span className="text-sm text-zinc-400">Chamber Ambient</span>
-                            <span className="text-lg font-bold text-orange-400">{status.info?.temp || status.chamber_temper || 0}°C</span>
+                            <span className="text-lg font-bold text-orange-400">{isMasked('maskPrinterTelemetryName') ? '••' : (status.info?.temp || status.chamber_temper || 0)}°C</span>
                           </div>
                         </CardContent>
                       </Card>
@@ -503,8 +514,8 @@ const PrinterPage = () => {
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-zinc-400">Speed Profile</span>
                             <div className="text-right">
-                              <span className="text-lg font-bold text-white">{getSpeedLabel(status.spd_lvl)}</span>
-                              <div className="text-[10px] text-zinc-500">{status.spd_mag || 100}% speed scale</div>
+                              <span className="text-lg font-bold text-white">{isMasked('maskPrinterTelemetryName') ? '•••••' : getSpeedLabel(status.spd_lvl)}</span>
+                              <div className="text-[10px] text-zinc-500">{isMasked('maskPrinterTelemetryName') ? '•••' : (status.spd_mag || 100)}% speed scale</div>
                             </div>
                           </div>
                           <div className="flex justify-between items-center">
@@ -537,15 +548,15 @@ const PrinterPage = () => {
                           <div className="grid grid-cols-3 gap-4 text-center">
                             <div className="space-y-1">
                               <div className="text-xs text-zinc-500">State</div>
-                              <div className={`text-md font-bold uppercase ${activeState.text}`}>{status.gcode_state || 'IDLE'}</div>
+                              <div className={`text-md font-bold uppercase ${activeState.text}`}>{isMasked('maskPrinterTelemetryName') ? '•••••' : (status.gcode_state || 'IDLE')}</div>
                             </div>
                             <div className="space-y-1">
                               <div className="text-xs text-zinc-500">Completed</div>
-                              <div className="text-md font-bold text-white">{status.percent || 0}%</div>
+                              <div className="text-md font-bold text-white">{isMasked('maskPrinterTelemetryName') ? '•••' : `${status.percent || 0}%`}</div>
                             </div>
                             <div className="space-y-1">
                               <div className="text-xs text-zinc-500">Remaining</div>
-                              <div className="text-md font-bold text-white">{status.remain_time || 0}m</div>
+                              <div className="text-md font-bold text-white">{isMasked('maskPrinterTelemetryName') ? '•••' : `${status.remain_time || 0}m`}</div>
                             </div>
                           </div>
 
@@ -553,18 +564,18 @@ const PrinterPage = () => {
                             <div className="h-3 w-full rounded-full bg-zinc-800 overflow-hidden">
                               <div
                                   className="h-full bg-indigo-500 transition-all duration-1000 ease-in-out"
-                                  style={{ width: `${status.percent || 0}%` }}
+                                  style={{ width: isMasked('maskPrinterTelemetryName') ? '0%' : `${status.percent || 0}%` }}
                               />
                             </div>
                             <div className="flex justify-between text-xs text-zinc-500">
-                              <span>Layer {status.layer_num || 0}</span>
-                              <span>Total Layers: {status.total_layer_num || 0}</span>
+                              <span>Layer {isMasked('maskPrinterTelemetryName') ? '•••' : (status.layer_num || 0)}</span>
+                              <span>Total Layers: {isMasked('maskPrinterTelemetryName') ? '•••' : (status.total_layer_num || 0)}</span>
                             </div>
                           </div>
 
                           {status.subtask_name && (
                             <div className="pt-3 border-t border-zinc-800 text-xs font-mono text-zinc-500 break-all">
-                              Task: {status.subtask_name}
+                              Task: {(showPersonalInfo || privacySettings.maskPrinterSubtaskName === false) ? status.subtask_name : '••••••••••••'}
                             </div>
                           )}
                         </CardContent>
@@ -634,6 +645,7 @@ const PrinterPage = () => {
                   <Label htmlFor="ip_address">Local IP Address</Label>
                   <Input
                     id="ip_address"
+                    type={showPersonalInfo || !privacySettings.maskPrinterIp ? "text" : "password"}
                     placeholder="e.g. 192.168.1.150"
                     value={formData.ip_address}
                     onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
@@ -643,6 +655,7 @@ const PrinterPage = () => {
                   <Label htmlFor="serial_number">Bambu Serial Number</Label>
                   <Input
                     id="serial_number"
+                    type={showPersonalInfo || !privacySettings.maskPrinterSerial ? "text" : "password"}
                     placeholder="e.g. 01P00A123456789"
                     value={formData.serial_number}
                     onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
@@ -652,7 +665,7 @@ const PrinterPage = () => {
                   <Label htmlFor="access_code">LAN Access Code</Label>
                   <Input
                     id="access_code"
-                    type="password"
+                    type={showPersonalInfo || !privacySettings.maskPrinterAccessCode ? "text" : "password"}
                     placeholder="8-character alphanumeric code"
                     value={formData.access_code}
                     onChange={(e) => setFormData({ ...formData, access_code: e.target.value })}
@@ -705,6 +718,7 @@ const PrinterPage = () => {
                   <Label htmlFor="edit-ip_address">Local IP Address</Label>
                   <Input
                     id="edit-ip_address"
+                    type={showPersonalInfo || !privacySettings.maskPrinterIp ? "text" : "password"}
                     placeholder="e.g. 192.168.1.150"
                     value={editFormData.ip_address}
                     onChange={(e) => setEditFormData({ ...editFormData, ip_address: e.target.value })}
@@ -714,6 +728,7 @@ const PrinterPage = () => {
                   <Label htmlFor="edit-serial_number">Bambu Serial Number</Label>
                   <Input
                     id="edit-serial_number"
+                    type={showPersonalInfo || !privacySettings.maskPrinterSerial ? "text" : "password"}
                     placeholder="e.g. 01P00A123456789"
                     value={editFormData.serial_number}
                     onChange={(e) => setEditFormData({ ...editFormData, serial_number: e.target.value })}
@@ -723,7 +738,7 @@ const PrinterPage = () => {
                   <Label htmlFor="edit-access_code">LAN Access Code</Label>
                   <Input
                     id="edit-access_code"
-                    type="password"
+                    type={showPersonalInfo || !privacySettings.maskPrinterAccessCode ? "text" : "password"}
                     placeholder="8-character alphanumeric code"
                     value={editFormData.access_code}
                     onChange={(e) => setEditFormData({ ...editFormData, access_code: e.target.value })}

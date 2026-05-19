@@ -9,10 +9,35 @@ import { Plus, Trash2, ClipboardList, Package, Calculator, Edit, X } from 'lucid
 import api from '@/lib/api';
 import type { PrintJob, Filament, JobFilament, Settings } from '@/types';
 import { format } from 'date-fns';
+import { JobsSkeleton } from '@/components/ui/Skeleton';
 
 const Jobs = () => {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
+    const saved = localStorage.getItem('showPersonalInfo');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [privacySettings, setPrivacySettings] = useState(() => {
+    const saved = localStorage.getItem('privacySettings');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const savedShow = localStorage.getItem('showPersonalInfo');
+      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
+      const savedPriv = localStorage.getItem('privacySettings');
+      setPrivacySettings(savedPriv ? JSON.parse(savedPriv) : {});
+    };
+    window.addEventListener('credentials-visibility-change', handleUpdate);
+    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
+  }, []);
+
+  const isMasked = (key: string) => {
+    return !showPersonalInfo && !!privacySettings[key];
+  };
+
   const [editingJobId, setEditingJobId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -186,13 +211,13 @@ const Jobs = () => {
     } as Partial<PrintJob> & { filaments: JobFilament[] });
   };
 
-  if (jobsLoading) return <div className="flex items-center justify-center min-h-[50vh]">Loading jobs...</div>;
+  if (jobsLoading) return <JobsSkeleton />;
 
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Print Jobs</h1>
+          <h1 className="text-3xl font-bold">{isMasked('maskJobsTitle') ? '•••••' : 'Print Jobs'}</h1>
           <p className="text-muted-foreground">Track and manage your manual and automated print jobs.</p>
         </div>
         <div className="flex gap-2">
@@ -255,7 +280,9 @@ const Jobs = () => {
                     <Calculator className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     <div>
                       <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Calculated Production Cost</p>
-                      <p className="text-2xl font-black text-blue-700 dark:text-blue-300">₺{productionCost.toFixed(2)}</p>
+                      <p className="text-2xl font-black text-blue-700 dark:text-blue-300">
+                        ₺{(showPersonalInfo || privacySettings.maskJobProductionCost === false) ? productionCost.toFixed(2) : '•••.••'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -346,33 +373,45 @@ const Jobs = () => {
               )}
               {jobs?.map((job) => (
                 <TableRow key={job.id} className="hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
-                  <TableCell className="font-medium">
-                    {format(new Date(job.created_at), 'MMM dd, HH:mm')}
+                  <TableCell className="font-medium font-mono text-xs">
+                    {(showPersonalInfo || privacySettings.maskJobDate === false) ? format(new Date(job.created_at), 'MMM dd, HH:mm') : '••••••••••••'}
                   </TableCell>
-                  <TableCell className="font-bold">{job.name}</TableCell>
+                  <TableCell className="font-bold">{(showPersonalInfo || privacySettings.maskJobName === false) ? job.name : '••••••••••••'}</TableCell>
                   <TableCell>
-                    <span className="px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase">
-                      {job.job_type}
+                    <span className="px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase font-mono">
+                      {(showPersonalInfo || privacySettings.maskJobType === false) ? (job.job_type || 'N/A') : '•••••'}
                     </span>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {job.filaments?.map((f, i) => (
-                        <span key={i} className="flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px]">
-                          <Package className="w-3 h-3" />
-                          {f.name}
-                        </span>
-                      ))}
-                      {(!job.filaments || job.filaments.length === 0) && '-'}
+                      {(showPersonalInfo || privacySettings.maskJobFilaments === false) ? (
+                        <>
+                          {job.filaments?.map((f, i) => (
+                            <span key={i} className="flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px]">
+                              <Package className="w-3 h-3" />
+                              {f.name}
+                            </span>
+                          ))}
+                          {(!job.filaments || job.filaments.length === 0) && '-'}
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground font-mono">••••••••</span>
+                      )}
                     </div>
                   </TableCell>
-                  <TableCell>{job.duration_minutes}m</TableCell>
+                  <TableCell className="font-mono text-xs">{(showPersonalInfo || privacySettings.maskJobDuration === false) ? `${job.duration_minutes}m` : '•••'}</TableCell>
                   <TableCell className="font-mono">
                     <div className="flex flex-col">
-                      <span className="font-bold text-green-600">₺{job.total_cost.toFixed(2)}</span>
-                      <div className="flex gap-2 items-center text-[10px]">
-                        <span className="text-muted-foreground opacity-70">Cost: ₺{job.production_cost.toFixed(2)}</span>
-                        <span className="text-blue-600 font-bold">P: ₺{(job.total_cost - job.production_cost).toFixed(2)}</span>
+                      <span className="font-bold text-green-600 font-mono">
+                        {(showPersonalInfo || privacySettings.maskJobTotalCost === false) ? `₺${job.total_cost.toFixed(2)}` : '₺•••.••'}
+                      </span>
+                      <div className="flex gap-2 items-center text-[10px] font-mono">
+                        <span className="text-muted-foreground opacity-70">
+                          Cost: {(showPersonalInfo || privacySettings.maskJobProductionCost === false) ? `₺${job.production_cost.toFixed(2)}` : '₺•••.••'}
+                        </span>
+                        <span className="text-blue-600 font-bold">
+                          P: {(showPersonalInfo || privacySettings.maskJobProfit === false) ? `₺${(job.total_cost - job.production_cost).toFixed(2)}` : '₺•••.••'}
+                        </span>
                       </div>
                     </div>
                   </TableCell>

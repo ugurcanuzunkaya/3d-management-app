@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Box, Scale, AlertTriangle, Coins } from 'lucide-react';
 import type { Filament } from '@/types';
@@ -7,6 +8,30 @@ interface StockSummaryProps {
 }
 
 const StockSummary = ({ filaments }: StockSummaryProps) => {
+  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
+    const saved = localStorage.getItem('showPersonalInfo');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [privacySettings, setPrivacySettings] = useState(() => {
+    const saved = localStorage.getItem('privacySettings');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const savedShow = localStorage.getItem('showPersonalInfo');
+      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
+      const savedPriv = localStorage.getItem('privacySettings');
+      setPrivacySettings(savedPriv ? JSON.parse(savedPriv) : {});
+    };
+    window.addEventListener('credentials-visibility-change', handleUpdate);
+    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
+  }, []);
+
+  const isMasked = (key: string) => {
+    return !showPersonalInfo && !!privacySettings[key];
+  };
+
   const totalWeightG = filaments.reduce((acc, f) => acc + f.remaining_weight_g, 0);
   const lowStockCount = filaments.filter(f => f.remaining_weight_g < 200).length;
   const inventoryValue = filaments.reduce((acc, f) => acc + (f.remaining_weight_g / 1000) * f.price_per_kg, 0);
@@ -22,9 +47,11 @@ const StockSummary = ({ filaments }: StockSummaryProps) => {
           <Box className="h-4 w-4 text-indigo-500 transition-transform duration-300 group-hover:scale-110" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-indigo-950 dark:text-indigo-50">{filaments.length}</div>
+          <div className="text-2xl font-bold text-indigo-950 dark:text-indigo-50">
+            {isMasked('maskStockSpoolName') ? '••' : filaments.length}
+          </div>
           <p className="text-xs text-indigo-600/70 dark:text-indigo-300/70 mt-1">
-            {sealedCount} Sealed, {openedCount} Opened
+            {isMasked('maskStockSpoolName') ? '•• Sealed, •• Opened' : `${sealedCount} Sealed, ${openedCount} Opened`}
           </p>
         </CardContent>
       </Card>
@@ -37,8 +64,14 @@ const StockSummary = ({ filaments }: StockSummaryProps) => {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-emerald-950 dark:text-emerald-50">
-            {(totalWeightG / 1000).toFixed(2)}{' '}
-            <span className="text-sm font-semibold text-emerald-600/80 dark:text-emerald-400/80">kg</span>
+            {isMasked('maskStockSpoolName') ? (
+              '••'
+            ) : (
+              <>
+                {(totalWeightG / 1000).toFixed(2)}{' '}
+                <span className="text-sm font-semibold text-emerald-600/80 dark:text-emerald-400/80">kg</span>
+              </>
+            )}
           </div>
           <p className="text-xs text-emerald-600/70 dark:text-emerald-300/70 mt-1">Across all spools</p>
         </CardContent>
@@ -61,7 +94,9 @@ const StockSummary = ({ filaments }: StockSummaryProps) => {
         <CardContent>
           <div className={`text-2xl font-bold ${
             lowStockCount > 0 ? 'text-red-950 dark:text-red-50' : 'text-amber-950 dark:text-amber-50'
-          }`}>{lowStockCount}</div>
+          }`}>
+            {isMasked('maskStockSpoolName') ? '••' : lowStockCount}
+          </div>
           <p className={`text-xs mt-1 ${
             lowStockCount > 0 ? 'text-red-600/70 dark:text-red-300/70' : 'text-amber-600/70 dark:text-amber-300/70'
           }`}>Below 200g remaining</p>
@@ -76,8 +111,14 @@ const StockSummary = ({ filaments }: StockSummaryProps) => {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-cyan-950 dark:text-cyan-50">
-            {inventoryValue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}{' '}
-            <span className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">TL</span>
+            {showPersonalInfo || privacySettings.maskInventoryValue === false ? (
+              <>
+                {inventoryValue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}{' '}
+                <span className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">TL</span>
+              </>
+            ) : (
+              '•••••• TL'
+            )}
           </div>
           <p className="text-xs text-cyan-600/70 dark:text-cyan-300/70 mt-1">Estimated total value</p>
         </CardContent>

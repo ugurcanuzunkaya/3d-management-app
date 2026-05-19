@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,29 @@ interface FilamentCardProps {
 
 const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
+    const saved = localStorage.getItem('showPersonalInfo');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [privacySettings, setPrivacySettings] = useState(() => {
+    const saved = localStorage.getItem('privacySettings');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const savedShow = localStorage.getItem('showPersonalInfo');
+      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
+      const savedPriv = localStorage.getItem('privacySettings');
+      setPrivacySettings(savedPriv ? JSON.parse(savedPriv) : {});
+    };
+    window.addEventListener('credentials-visibility-change', handleUpdate);
+    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
+  }, []);
+  const isMasked = (key: string) => {
+    return !showPersonalInfo && !!privacySettings[key];
+  };
+
   const isLowStock = filament.remaining_weight_g < 200;
   const colorHex = filament.filament_color?.hex_code || '#808080';
 
@@ -24,10 +47,9 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
       const g = parseInt(hex.substring(2, 4), 16);
       const b = parseInt(hex.substring(4, 6), 16);
 
-      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
       const maxDiff = Math.max(Math.abs(r - g), Math.abs(r - b), Math.abs(g - b));
 
-      return luminance < 0.35 || maxDiff < 30;
+      return Math.max(r, g, b) < 90 || maxDiff < 30;
     } catch {
       return false;
     }
@@ -64,7 +86,7 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
               className="text-base font-semibold leading-tight line-clamp-1 transition-colors duration-300"
               style={{ color: isHovered && !isDarkOrGrey ? colorHex : '#ffffff' }}
             >
-              {filament.name}
+              {isMasked('maskStockSpoolName') ? '•••••' : filament.name}
             </CardTitle>
             <div className="flex flex-wrap gap-1">
               <Badge
@@ -81,7 +103,7 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
                   variant="ghost"
                   className="text-[9px] font-bold uppercase tracking-wider h-4 px-1.5 bg-zinc-800/60 text-zinc-200 border border-zinc-700/40"
                 >
-                  {filament.filament_type.name}
+                  {isMasked('maskStockSpoolName') ? '•••••' : filament.filament_type.name}
                 </Badge>
               )}
             </div>
@@ -115,19 +137,19 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
                 className={`font-bold transition-colors ${isLowStock ? 'text-rose-400' : 'text-zinc-200'
                   }`}
               >
-                {filament.remaining_weight_g}g
+                {isMasked('maskStockSpoolName') ? '•••' : `${filament.remaining_weight_g}g`}
               </span>
             </div>
             <div className="w-full bg-zinc-800/60 h-1.5 rounded-full overflow-hidden border border-zinc-850/40">
               <div
                 className="h-full transition-all duration-300"
                 style={{
-                  width: `${Math.min(100, (filament.remaining_weight_g / 1000) * 100)}%`,
+                  width: isMasked('maskStockSpoolName') ? '0%' : `${Math.min(100, (filament.remaining_weight_g / 1000) * 100)}%`,
                   backgroundColor: isLowStock ? '#ef4444' : colorHex
                 }}
               ></div>
             </div>
-            {isLowStock && (
+            {isLowStock && !isMasked('maskStockSpoolName') && (
               <div className="flex items-center gap-1 text-[9px] text-rose-400 font-bold uppercase tracking-wider mt-1 animate-pulse">
                 <AlertTriangle className="h-3 w-3" /> Low Stock Warning
               </div>
@@ -140,9 +162,11 @@ const FilamentCard = ({ filament, onEdit, onDelete }: FilamentCardProps) => {
                 className="w-2.5 h-2.5 rounded-full border border-white/10"
                 style={{ backgroundColor: colorHex }}
               ></div>
-              <span className="text-zinc-400 font-medium">{filament.filament_color?.name || 'Unknown'}</span>
+              <span className="text-zinc-400 font-medium">{isMasked('maskStockSpoolName') ? '•••••' : (filament.filament_color?.name || 'Unknown')}</span>
             </div>
-            <span className="font-bold text-zinc-100">{filament.price_per_kg} TL/kg</span>
+            <span className="font-bold text-zinc-100">
+              {showPersonalInfo || privacySettings.maskFilamentPrice === false ? `${filament.price_per_kg} TL/kg` : '••• TL/kg'}
+            </span>
           </div>
         </div>
       </CardContent>

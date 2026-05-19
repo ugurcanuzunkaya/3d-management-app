@@ -41,7 +41,17 @@ describe('PrinterStatusWidget - Telemetry and Offline Detection', () => {
       last_updated: telemetryTime,
     };
 
-    const spyGet = vi.spyOn(api, 'get').mockResolvedValue({ data: mockStatus });
+    const spyGet = vi.spyOn(api, 'get').mockImplementation((url) => {
+      if (url === '/api/printer') {
+        return Promise.resolve({
+          data: [{ id: 1, name: 'Bambu Lab P1S', ip_address: '192.168.1.1', serial_number: '12345', access_code: 'abc', is_active: true }]
+        });
+      }
+      if (url === '/api/printer/1/status') {
+        return Promise.resolve({ data: mockStatus });
+      }
+      return Promise.reject(new Error(`Unhandled URL: ${url}`));
+    });
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -81,7 +91,17 @@ describe('PrinterStatusWidget - Telemetry and Offline Detection', () => {
       last_updated: telemetryTime,
     };
 
-    const spyGet = vi.spyOn(api, 'get').mockResolvedValue({ data: mockStatus });
+    const spyGet = vi.spyOn(api, 'get').mockImplementation((url) => {
+      if (url === '/api/printer') {
+        return Promise.resolve({
+          data: [{ id: 1, name: 'Bambu Lab P1S', ip_address: '192.168.1.1', serial_number: '12345', access_code: 'abc', is_active: true }]
+        });
+      }
+      if (url === '/api/printer/1/status') {
+        return Promise.resolve({ data: mockStatus });
+      }
+      return Promise.reject(new Error(`Unhandled URL: ${url}`));
+    });
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -96,6 +116,6 @@ describe('PrinterStatusWidget - Telemetry and Offline Detection', () => {
     // Wait for state updates to propagate
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    expect(screen.getByText(/Printer not working/i)).toBeInTheDocument();
+    expect(screen.getByText(/Printer Offline/i)).toBeInTheDocument();
   });
 });

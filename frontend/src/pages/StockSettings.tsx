@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,12 +8,37 @@ import { ArrowLeft, Save, Plus, Trash2, Palette, Layers, Settings, Loader2 } fro
 import { Link } from 'react-router-dom';
 import api from '@/lib/api';
 import type { FilamentType, FilamentColor, StockSettings } from '@/types';
+import { SettingsSkeleton } from '@/components/ui/Skeleton';
 
 const StockSettingsPage = () => {
   const queryClient = useQueryClient();
   const [newTypeName, setNewTypeName] = useState('');
   const [newColorName, setNewColorName] = useState('');
   const [newColorHex, setNewColorHex] = useState('#000000');
+
+  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
+    const saved = localStorage.getItem('showPersonalInfo');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [privacySettings, setPrivacySettings] = useState(() => {
+    const saved = localStorage.getItem('privacySettings');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const savedShow = localStorage.getItem('showPersonalInfo');
+      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
+      const savedPriv = localStorage.getItem('privacySettings');
+      setPrivacySettings(savedPriv ? JSON.parse(savedPriv) : {});
+    };
+    window.addEventListener('credentials-visibility-change', handleUpdate);
+    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
+  }, []);
+
+  const isMasked = (key: string) => {
+    return !showPersonalInfo && !!privacySettings[key];
+  };
 
   const { data: types, isLoading: loadingTypes } = useQuery<FilamentType[]>({
     queryKey: ['filament-types'],
@@ -63,7 +88,7 @@ const StockSettingsPage = () => {
   });
 
   if (loadingTypes || loadingColors || loadingSettings) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    return <SettingsSkeleton />;
   }
 
   return (
@@ -75,7 +100,9 @@ const StockSettingsPage = () => {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Stock Settings</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {isMasked('maskStockSettingsTitle') ? '•••••' : 'Stock Settings'}
+          </h1>
           <p className="text-muted-foreground">Configure defaults, types, and colors for your inventory.</p>
         </div>
       </div>
@@ -104,11 +131,23 @@ const StockSettingsPage = () => {
             >
               <div className="space-y-2">
                 <Label htmlFor="price">Default Price (TL/kg)</Label>
-                <Input id="price" name="price" type="number" step="0.01" defaultValue={settings?.default_price_per_kg} />
+                <Input
+                  id="price"
+                  name="price"
+                  type={isMasked('maskStockSettingsList') ? 'text' : 'number'}
+                  step="0.01"
+                  defaultValue={isMasked('maskStockSettingsList') ? '•••' : settings?.default_price_per_kg}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="weight">Default Spool Weight (g)</Label>
-                <Input id="weight" name="weight" type="number" step="0.1" defaultValue={settings?.default_weight_g} />
+                <Input
+                  id="weight"
+                  name="weight"
+                  type={isMasked('maskStockSettingsList') ? 'text' : 'number'}
+                  step="0.1"
+                  defaultValue={isMasked('maskStockSettingsList') ? '•••' : settings?.default_weight_g}
+                />
               </div>
               <div className="md:col-span-2 flex justify-end">
                 <Button type="submit" disabled={updateSettingsMutation.isPending}>
@@ -144,7 +183,9 @@ const StockSettingsPage = () => {
             <div className="border rounded-lg divide-y max-h-[300px] overflow-y-auto">
               {types?.map(type => (
                 <div key={type.id} className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
-                  <span className="text-sm font-medium">{type.name}</span>
+                  <span className="text-sm font-medium">
+                    {isMasked('maskStockSettingsList') ? '•••••' : type.name}
+                  </span>
                   <Button
                     variant="ghost"
                     size="icon-xs"
@@ -193,9 +234,16 @@ const StockSettingsPage = () => {
               {colors?.map(color => (
                 <div key={color.id} className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full border shadow-sm" style={{ backgroundColor: color.hex_code }}></div>
-                    <span className="text-sm font-medium">{color.name}</span>
-                    <span className="text-xs text-muted-foreground uppercase">{color.hex_code}</span>
+                    <div
+                      className="w-4 h-4 rounded-full border shadow-sm"
+                      style={{ backgroundColor: isMasked('maskStockSettingsList') ? '#000000' : color.hex_code }}
+                    ></div>
+                    <span className="text-sm font-medium">
+                      {isMasked('maskStockSettingsList') ? '•••••' : color.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground uppercase">
+                      {isMasked('maskStockSettingsList') ? '•••••' : color.hex_code}
+                    </span>
                   </div>
                   <Button
                     variant="ghost"

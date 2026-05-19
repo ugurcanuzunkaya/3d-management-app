@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Plus, Settings2, Loader2 } from 'lucide-react';
+import { Plus, Settings2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '@/lib/api';
 import type { Filament, FilamentType, FilamentColor, StockSettings } from '@/types';
@@ -11,6 +11,7 @@ import FilamentSearchBar from '@/components/stock/FilamentSearchBar';
 import FilamentCard from '@/components/stock/FilamentCard';
 import FilamentFormModal from '@/components/stock/FilamentFormModal';
 import DeleteConfirmModal from '@/components/stock/DeleteConfirmModal';
+import { StockSkeleton } from '@/components/ui/Skeleton';
 
 const FilamentStock = () => {
   const queryClient = useQueryClient();
@@ -18,6 +19,30 @@ const FilamentStock = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [colorFilter, setColorFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
+    const saved = localStorage.getItem('showPersonalInfo');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [privacySettings, setPrivacySettings] = useState(() => {
+    const saved = localStorage.getItem('privacySettings');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const savedShow = localStorage.getItem('showPersonalInfo');
+      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
+      const savedPriv = localStorage.getItem('privacySettings');
+      setPrivacySettings(savedPriv ? JSON.parse(savedPriv) : {});
+    };
+    window.addEventListener('credentials-visibility-change', handleUpdate);
+    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
+  }, []);
+
+  const isMasked = (key: string) => {
+    return !showPersonalInfo && !!privacySettings[key];
+  };
 
   const handleSearch = (s: string) => { setSearch(s); setCurrentPage(1); };
   const handleType = (t: string) => { setTypeFilter(t); setCurrentPage(1); };
@@ -113,13 +138,13 @@ const FilamentStock = () => {
     setCurrentPage(1);
   };
 
-  if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (isLoading) return <StockSkeleton />;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Filament Stock</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{isMasked('maskStockTitle') ? '•••••' : 'Filament Stock'}</h1>
           <p className="text-muted-foreground">Manage your filament inventory and track usage.</p>
         </div>
         <div className="flex gap-2">
