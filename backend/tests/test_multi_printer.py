@@ -231,15 +231,16 @@ def test_all_printers_status(client, test_db_session, mqtt_service):
 
 def test_printer_offline_on_no_response(mqtt_service):
     # 1. Register printer
-    mqtt_service.register_printer(
-        100, "192.168.1.150", "SN_OFFLINE_TEST", "secret"
-    )
+    mqtt_service.register_printer(100, "192.168.1.150", "SN_OFFLINE_TEST", "secret")
     conn = mqtt_service.connections[100]
 
     # 2. Mock it is connected but no telemetry was ever received
     # If last_request_time was set but 15 seconds passed, it should show offline
     import time
-    conn.last_request_time = time.time() - 12.0  # 12 seconds ago (exceeds 10s threshold)
+
+    conn.last_request_time = (
+        time.time() - 12.0
+    )  # 12 seconds ago (exceeds 10s threshold)
 
     status = conn.get_status()
     assert status["gcode_state"] == "OFFLINE"
@@ -257,4 +258,3 @@ def test_printer_offline_on_no_response(mqtt_service):
     status = conn.get_status()
     assert status["gcode_state"] == "IDLE"
     assert status["online"]["ahb"] is True
-

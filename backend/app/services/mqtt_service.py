@@ -102,14 +102,18 @@ class PrinterConnection:
             is_offline = True
         elif not self.received_first_message:
             # If we connected but haven't received anything yet, check if we've been waiting too long
-            if self.last_request_time > 0 and (current_time - self.last_request_time > 10.0):
+            if self.last_request_time > 0 and (
+                current_time - self.last_request_time > 10.0
+            ):
                 is_offline = True
         else:
             # We received messages before. Let's check if the telemetry is stale or if we requested status and got no response
             last_ts = self.last_status.get("_internal_timestamp", 0)
             if current_time - last_ts > 300.0:  # 5 minutes stale
                 is_offline = True
-            elif self.last_request_time > last_ts and (current_time - self.last_request_time > 15.0):
+            elif self.last_request_time > last_ts and (
+                current_time - self.last_request_time > 15.0
+            ):
                 # We sent a poll request, but haven't received any update in 15 seconds
                 is_offline = True
 
@@ -130,7 +134,9 @@ class PrinterConnection:
             if "online" not in status_data:
                 status_data["online"] = {"ahb": True}
 
-        status_data["last_updated"] = self.last_status.get("_internal_timestamp") if self.last_status else None
+        status_data["last_updated"] = (
+            self.last_status.get("_internal_timestamp") if self.last_status else None
+        )
         return status_data
 
     def start(self):
