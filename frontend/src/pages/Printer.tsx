@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Activity, Thermometer, Clock,
-  Gauge, Box, RefreshCw, Plus, Edit2, Trash2, X
+  Gauge, Box, RefreshCw, Plus, Edit2, Trash2, X,
+  Eye, EyeOff
 } from 'lucide-react';
 import api from '@/lib/api';
 import type { Printer } from '@/types';
@@ -40,6 +41,7 @@ const PrinterPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [lastManualPoll, setLastManualPoll] = useState<Date | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [showPersonalInfo, setShowPersonalInfo] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -280,10 +282,20 @@ const PrinterPage = () => {
           </h1>
           <p className="text-muted-foreground">Monitor and manage your Bambu Lab 3D printer fleet.</p>
         </div>
-        <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 self-start md:self-center shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-all">
-          <Plus className="w-4 h-4" />
-          Add Printer
-        </Button>
+        <div className="flex items-center gap-2 self-start md:self-center">
+          <Button
+            variant="outline"
+            onClick={() => setShowPersonalInfo(!showPersonalInfo)}
+            className="gap-2 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+          >
+            {showPersonalInfo ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+            {showPersonalInfo ? 'Hide Credentials' : 'Show Credentials'}
+          </Button>
+          <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-all">
+            <Plus className="w-4 h-4" />
+            Add Printer
+          </Button>
+        </div>
       </div>
 
       {isLoadingPrinters ? (
@@ -338,7 +350,9 @@ const PrinterPage = () => {
                             <span className="text-[10px] bg-white/10 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700">Disabled</span>
                           )}
                         </div>
-                        <div className="text-xs text-zinc-400 font-mono">{printer.ip_address}</div>
+                        <div className="text-xs text-zinc-400 font-mono">
+                          {showPersonalInfo ? printer.ip_address : '•••.•••.•••.•••'}
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
@@ -375,7 +389,7 @@ const PrinterPage = () => {
                         <div className={`h-2.5 w-2.5 rounded-full ${activeState.color}`} />
                       </div>
                       <p className="text-xs text-zinc-400 font-mono mt-1">
-                        Serial: {selectedPrinter.serial_number} | Host: {selectedPrinter.ip_address}
+                        Serial: {showPersonalInfo ? selectedPrinter.serial_number : '••••••••••••'} | Host: {showPersonalInfo ? selectedPrinter.ip_address : '•••.•••.•••.•••'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 self-start md:self-center">
@@ -408,7 +422,7 @@ const PrinterPage = () => {
                     <Activity className="w-12 h-12 text-red-500 opacity-60 mx-auto mb-4 animate-pulse" />
                     <h3 className="font-semibold text-lg text-red-400">Printer Offline</h3>
                     <p className="text-xs text-zinc-400 max-w-md mx-auto mt-1 mb-6">
-                      No telemetry packets have been received from IP {selectedPrinter.ip_address} in the last {status?.last_updated ? Math.floor((now - status.last_updated * 1000) / 60000) : 'several'} minutes. Check if the printer is powered on and connected to the same local network.
+                      No telemetry packets have been received from IP {showPersonalInfo ? selectedPrinter.ip_address : '•••.•••.•••.•••'} in the last {status?.last_updated ? Math.floor((now - status.last_updated * 1000) / 60000) : 'several'} minutes. Check if the printer is powered on and connected to the same local network.
                     </p>
                     <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['all-printer-statuses'] })} className="border-zinc-700 hover:bg-zinc-900 text-white">
                       Recheck Connection
