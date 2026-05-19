@@ -7,6 +7,10 @@ All notable changes to this project are documented in this file.
 ## [2026-05-20]
 
 ### 🚀 Added
+- **Overwhelming Privacy Mode (UI)**: Expanded the visibility masking framework to dynamically mask the application logo, navigation link labels, and page titles across the app.
+- **Granular Job Log Table Privacy Settings (UI)**: Added individual toggles for masking Date, Type, Filaments, and Duration in the print jobs log history table.
+- **Interactive Privacy Dual-Listbox Configurator**: Designed a premium, dual-column transfer list interface (`Masked Fields (Selected)` vs `Shown Fields (Unselected)`) with batch and single transfer actions, replacing checkboxes on the Settings page.
+- **Custom Shimmer Page Skeletons**: Built tailored, layout-aware skeleton screen components for all pages (Dashboard, Printer, Filament Stock, Model Library, Jobs, and Settings) replacing generic spinners during asynchronous data fetch operations.
 - **Multi-Printer Registry (Backend)**: Added database schema (`Printer` model), alembic migrations, and REST endpoints under `/api/printers` for dynamic CRUD operations on printers.
 - **Asynchronous MQTT Registry Service**: Implemented `BambuMQTTService` registry class in backend to manage individual MQTT client connections dynamically, including startup polling and shutdown hooks.
 - **Offline Health Check**: Implemented connection health validation that flags printers as `OFFLINE` if no telemetry data has been received within the configured timeout (10/15 seconds).
@@ -16,6 +20,7 @@ All notable changes to this project are documented in this file.
 - **Automatic Database Migrations**: Configured the backend Docker container to run `alembic upgrade head` automatically on container start.
 
 ### 🔧 Fixed & Improved
+- **Printers Tab Redundancy Cleanup**: De-duplicated the local "Show/Hide Info" button on the Printers tab to centralize state control via the global navigation header control.
 - **State Selection Stability**: Refactored frontend pages to derive selected printer ID dynamically from the URL/Query state instead of using separate side-effecting `useEffect` blocks, eliminating infinite loops and race conditions.
 - **Unified Status Parsing**: Synchronized status mapping across dashboard and fleet tabs to recognize and format `gcode_state` statuses (Online, Offline, Working, Idle, Stopped) correctly.
 

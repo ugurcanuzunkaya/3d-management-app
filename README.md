@@ -105,18 +105,20 @@ We have structured our expansion strategy into logical, high-impact development 
     *   *Features*: Decoupled 3D Model Library with drag-and-drop vision scanning (multipart images) and automated link scraping (Playwright + Firecrawl). Supported by Gemini, Claude, OpenAI, and local Ollama (`qwen3.5` & `gemma4`) model extractions. Gorgeously themed MakerWorld (green-glow) and Printables (orange-glow) provider cards.
 *   **[x] Phase 4: Multi-Printer Registry & Fleet Control (Completed)**
     *   *Features*: Dynamic registration and lifecycle management of multiple Bambu Lab printers. Master-Detail dashboard view with active state badges, consolidated background polling loops, connection response health checks, and toggleable credential masking for IP and Serial Numbers.
+*   **[x] Phase 5: Overwhelming Privacy Mode & Page Loading Skeletons (Completed)**
+    *   *Features*: Extended global visual visibility toggling across the app layout (logo, titles, links, individual details). Interactive dual-listbox configuration menu on Settings page for granular control (including Date, Type, Filaments, and Duration on Jobs tab). Tailored, layout-aware shimmer skeleton screens for all pages.
 
 ### Upcoming Milestones 🔮
-*   **[ ] Phase 5: Advanced Cost Analytics & Production Reporting (Active)**
+*   **[ ] Phase 6: Advanced Cost Analytics & Production Reporting (Active)**
     *   *Energy Tracking*: Join active print job duration profiles with local utility kWh pricing grids to compute precise real-time electrical overheads.
     *   *Automated Depletion*: Automatically decrement spool remaining weights upon successful print job execution, updating the warehouse log.
     *   *ROI Margins Deck*: Interactive graphs comparing raw material costs (filament + wear + electricity) against sales value to chart operational return on investment.
     *   *Print Reports*: Exportable PDF print logs documenting filament color distributions, monthly production volumes, and machine failure frequencies.
-*   **[ ] Phase 6: Smart Print Queue & dispatching**
+*   **[ ] Phase 7: Smart Print Queue & dispatching**
     *   *Global Queue Deck*: A centralized priority-ranked spool queue. Queue up sliced files, set print priorities, and route tasks to idle nodes.
     *   *Color-Matching Dispatcher*: Auto-assign prints to nodes based on matching active AMS slots with the material requirements parsed by our AI spectrometer.
     *   *Maintenance Logbook*: Monitor component wear (nozzle, lead screws, belt tension profiles) prompting custom maintenance alerts based on active operating run-times.
-*   **[ ] Phase 7: PWA Mobile Companion & Push Notifications**
+*   **[ ] Phase 8: PWA Mobile Companion & Push Notifications**
     *   *Mobile PWA*: Desktop-matching, ultra-fluid Progressive Web App featuring offline caching profiles and simple native home-screen installation.
     *   *Real-time Push Alerts*: Push notification system informing the user's mobile device of failure warnings (filament depletion, chamber overheating) or successful job finishes.
     *   *Low-latency Webcams*: Direct integration of printer camera streams inside the dashboard layout using secure, low-latency HLS or WebRTC feeds.
