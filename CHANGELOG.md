@@ -35,10 +35,15 @@ All notable changes to this project are documented in this file.
 - **Printers Tab Redundancy Cleanup**: De-duplicated the local "Show/Hide Info" button on the Printers tab to centralize state control via the global navigation header control.
 - **State Selection Stability**: Refactored frontend pages to derive selected printer ID dynamically from the URL/Query state instead of using separate side-effecting `useEffect` blocks, eliminating infinite loops and race conditions.
 - **Unified Status Parsing**: Synchronized status mapping across dashboard and fleet tabs to recognize and format `gcode_state` statuses (Online, Offline, Working, Idle, Stopped) correctly.
+- **FastAPI UploadFile Cleanup**: Prevented system file descriptor leaks in the image analysis route by wrapping the file stream reader in a `try...finally` block that guarantees `file.close()` runs.
+- **AIService Performance Optimization**: Optimized the Ollama provider to reuse a single persistent `AsyncClient` instance initialized in the constructor, saving socket allocation cycles and port resources.
+- **Lifespan Task Cancellation**: Cleanly handles background polling task cancellation inside the server lifespan shutdown hook to prevent coroutine warning logs.
+- **Alembic Typecheck Diagnostics**: Resolved type checker warnings during `ty check` by adding missing explicit imports for `sqlmodel.sql.sqltypes` in migrations.
 
 ### 🧪 Tests
 - **Multi-Printer Integration Tests**: Wrote comprehensive pytest test suite validating backend CRUD, service registry, connection lifecycle hooks, and mock MQTT message processing.
 - **TDD Offline Tests**: Wrote automated tests verifying offline timeout transitions and flag injection logic.
+- **Vitest Warn Reduction**: Replaced synchronous elements and manual `setTimeout` statements with asynchronous `findByText` selectors in frontend tests, resolving React `act(...)` update warnings.
 
 ---
 

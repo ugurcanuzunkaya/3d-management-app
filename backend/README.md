@@ -67,9 +67,9 @@ The backend engine for the 3D Management App, built with FastAPI and SQLModel. I
 
 ## 🧪 Testing & Quality
 
-- **Run Tests**: `uv run pytest`
-- **Linting**: `ruff check .`
-- **Formatting**: `ruff format .`
+- **Run Tests**: `PYTHONPATH=. uv run pytest`
+- **Linting**: `uv run ruff check .`
+- **Formatting**: `uv run ruff format .`
 - **Type Checking**: `uv run ty check`
 - **Security Scan**: `trivy config .` (Static audit of configuration files/Dockerfiles)
 

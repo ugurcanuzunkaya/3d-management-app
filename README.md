@@ -57,6 +57,13 @@ The project is built with a modern, decoupled architecture:
 - **Base OS & Library Security**: Container base OS libraries are updated automatically during the build process, and python packages (such as `urllib3` for CVE-2023-45853) are pinned to safe versions.
 - **Trivy Audited**: Scanned and verified clean using `trivy` for both package dependencies and Docker configuration rules.
 
+## ⚡ Resource & Performance Hardening
+
+- **File Descriptor Leak Prevention**: All API file uploads cleanly close their respective OS file streams after processing, mitigating memory/FD leakage during high-frequency screenshot parsing.
+- **Client Connection Reuse**: Global AI model clients (such as the Ollama `AsyncClient`) are initialized once and recycled across extraction requests, minimizing TCP socket overhead.
+- **Clean Coroutine Shutdown**: Background polling listeners are gracefully cancelled and awaited during ASGI lifespan shutdown, preventing unhandled background execution warnings.
+- **Test-Suite Optimization**: Unit and integration test assertions utilize async selectors (`findByText`) rather than static timeouts, eliminating React `act(...)` warning traces entirely.
+
 ## 🚀 Quick Start
 
 ### 🐳 Option 1: Running with Docker (Recommended)
