@@ -9,7 +9,8 @@ All notable changes to this project are documented in this file.
 ### 🚀 Added
 - **Overwhelming Privacy Mode (UI)**: Expanded the visibility masking framework to dynamically mask the application logo, navigation link labels, and page titles across the app.
 - **Granular Job Log Table Privacy Settings (UI)**: Added individual toggles for masking Date, Type, Filaments, and Duration in the print jobs log history table.
-- **Interactive Privacy Dual-Listbox Configurator**: Designed a premium, dual-column transfer list interface (`Masked Fields (Selected)` vs `Shown Fields (Unselected)`) with batch and single transfer actions, replacing checkboxes on the Settings page.
+- **Interactive Page-Based Privacy Settings**: Replaced the settings-page dual-listbox configuration with a new, page-based visual configuration workflow. Users can click a "Configure" settings button next to the navbar toggle, visually select elements directly on the active page to lock/unlock them, and save/load named privacy presets.
+- **Database-Backed Privacy Presets**: Created a SQLite database model, schema, services, and endpoints (`GET /api/privacy-presets`, `POST /api/privacy-presets`, `DELETE /api/privacy-presets/{id}`) to persist and synchronize named privacy configurations across sessions.
 - **Custom Shimmer Page Skeletons**: Built tailored, layout-aware skeleton screen components for all pages (Dashboard, Printer, Filament Stock, Model Library, Jobs, and Settings) replacing generic spinners during asynchronous data fetch operations.
 - **Multi-Printer Registry (Backend)**: Added database schema (`Printer` model), alembic migrations, and REST endpoints under `/api/printers` for dynamic CRUD operations on printers.
 - **Asynchronous MQTT Registry Service**: Implemented `BambuMQTTService` registry class in backend to manage individual MQTT client connections dynamically, including startup polling and shutdown hooks.

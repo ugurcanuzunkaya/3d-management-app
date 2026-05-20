@@ -39,6 +39,7 @@ A premium, comprehensive management system for 3D printing workflows, specifical
 - **Real-time MQTT Tracking**: Persistent background listeners that subscribe to and parse telemetry channels from active printer spools.
 - **Smart Cost Engine**: Calculates total production cost based on electricity, power usage, and filament price with customizable markups.
 - **Modular Settings**: Manage filament types, colors, and system-wide inventory defaults.
+- **Page-Based Interactive Privacy Mode & Database Presets (New)**: Configure which elements to show or mask dynamically by entering visual configuration mode directly on any page. Select layout columns, telemetry data, or financial summaries interactively. Save named privacy presets to the backend SQLite database to easily swap preset profiles later.
 
 ## 🏗 Architecture
 
