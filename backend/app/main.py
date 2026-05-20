@@ -70,6 +70,10 @@ async def lifespan(app: FastAPI):
 
     if polling_task:
         polling_task.cancel()
+        try:
+            await polling_task
+        except asyncio.CancelledError:
+            pass
     mqtt_service.stop()
 
 

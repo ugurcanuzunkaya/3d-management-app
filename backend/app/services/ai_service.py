@@ -91,6 +91,14 @@ class AIService:
                 "ANTHROPIC_API_KEY not set. Claude features will be disabled."
             )
 
+        # 5. Ollama Client
+        try:
+            import ollama
+            self.ollama_client = ollama.AsyncClient(host=self.settings.ollama_base_url)
+        except Exception as e:
+            logger.error(f"Failed to initialize Ollama Client: {e}")
+            self.ollama_client = None
+
     async def fetch_markdown_or_text(self, url: str) -> Optional[str]:
         """
         Robust 3-tiered webpage scraper:
@@ -287,9 +295,10 @@ class AIService:
                 return ModelExtractionResult.model_validate(data)
 
             elif active_provider in ("ollama_qwen3.5", "ollama_gemma4"):
-                import ollama
-
-                client = ollama.AsyncClient(host=self.settings.ollama_base_url)
+                client = self.ollama_client
+                if not client:
+                    import ollama
+                    client = ollama.AsyncClient(host=self.settings.ollama_base_url)
                 if active_provider == "ollama_gemma4":
                     models_to_try = [
                         self.settings.ollama_model_gemma,
@@ -490,9 +499,10 @@ class AIService:
 
             elif active_provider in ("ollama_qwen3.5", "ollama_gemma4"):
                 base64_image = base64.b64encode(image_bytes).decode("utf-8")
-                import ollama
-
-                client = ollama.AsyncClient(host=self.settings.ollama_base_url)
+                client = self.ollama_client
+                if not client:
+                    import ollama
+                    client = ollama.AsyncClient(host=self.settings.ollama_base_url)
                 if active_provider == "ollama_gemma4":
                     models_to_try = [
                         self.settings.ollama_model_gemma,

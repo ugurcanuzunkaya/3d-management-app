@@ -123,12 +123,16 @@ async def analyze_image(
         )
 
     try:
-        image_bytes = await file.read()
-        if len(image_bytes) > MAX_FILE_SIZE:
-            raise HTTPException(
-                status_code=413,
-                detail="Uploaded file exceeds the maximum allowed size of 15MB.",
-            )
+        try:
+            image_bytes = await file.read()
+            if len(image_bytes) > MAX_FILE_SIZE:
+                raise HTTPException(
+                    status_code=413,
+                    detail="Uploaded file exceeds the maximum allowed size of 15MB.",
+                )
+        finally:
+            await file.close()
+
         extraction_result = await ai_service.extract_tech_params_from_image(
             image_bytes, mime_type, provider=provider
         )
