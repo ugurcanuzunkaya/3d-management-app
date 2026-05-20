@@ -261,3 +261,6 @@ backend/3d_management.db
 # Linting
 frontend/lint_output.txt
 frontend/lint_results*.txt
+
+# Case Study Logs
+case_study/
