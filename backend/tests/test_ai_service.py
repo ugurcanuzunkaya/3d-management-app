@@ -44,9 +44,10 @@ async def test_extract_tech_params_from_text(ai_service):
 @pytest.mark.anyio
 async def test_fetch_markdown_or_text_failure(ai_service):
     ai_service.firecrawl_app = None
-    with patch("app.services.ai_service.async_playwright") as mock_playwright:
-        mock_playwright.return_value.__aenter__.side_effect = Exception(
-            "Playwright failed"
-        )
-        res = await ai_service.fetch_markdown_or_text("http://test.com")
-        assert res is None
+    with patch("app.services.ai_service.is_safe_url", return_value=True):
+        with patch("app.services.ai_service.async_playwright") as mock_playwright:
+            mock_playwright.return_value.__aenter__.side_effect = Exception(
+                "Playwright failed"
+            )
+            res = await ai_service.fetch_markdown_or_text("http://test.com")
+            assert res is None

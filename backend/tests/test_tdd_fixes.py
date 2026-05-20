@@ -32,20 +32,20 @@ def ai_service():
         return service
 
 
-# 1. Playwright Process Leak Test
 @pytest.mark.anyio
 async def test_playwright_closes_on_error(ai_service):
-    with patch("app.services.ai_service.async_playwright") as mock_playwright:
-        mock_p_instance = mock_playwright.return_value.__aenter__.return_value
-        mock_browser = mock_p_instance.chromium.launch.return_value
+    with patch("app.services.ai_service.is_safe_url", return_value=True):
+        with patch("app.services.ai_service.async_playwright") as mock_playwright:
+            mock_p_instance = mock_playwright.return_value.__aenter__.return_value
+            mock_browser = mock_p_instance.chromium.launch.return_value
 
-        # Make new_context raise an exception
-        mock_browser.new_context.side_effect = Exception("Playwright context crash")
+            # Make new_context raise an exception
+            mock_browser.new_context.side_effect = Exception("Playwright context crash")
 
-        await ai_service.fetch_markdown_or_text("http://fail-url.com")
+            await ai_service.fetch_markdown_or_text("http://fail-url.com")
 
-        # Assert that browser.close was still called!
-        mock_browser.close.assert_called_once()
+            # Assert that browser.close was still called!
+            mock_browser.close.assert_called_once()
 
 
 # 2. Async AI Extraction Methods check

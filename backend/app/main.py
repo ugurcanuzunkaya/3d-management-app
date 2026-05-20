@@ -80,13 +80,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+cfg_settings = get_settings()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cfg_settings.allowed_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
 )
+
 
 # Include Routers
 app.include_router(filaments.router, prefix="/api")

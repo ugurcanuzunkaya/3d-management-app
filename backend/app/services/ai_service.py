@@ -18,6 +18,7 @@ import anthropic
 
 from app.config import AppSettings
 from app.schemas.model3d import ModelExtractionResult
+from app.core.security import is_safe_url
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,12 @@ class AIService:
         Tier 2: Playwright headless browser rendering
         Tier 3: standard HTTP GET (httpx + BeautifulSoup text extractor)
         """
+        if not is_safe_url(url):
+            logger.warning(f"Blocked scraping request to unsafe URL target: {url}")
+            raise ValueError("Unsafe URL target")
+
         # Tier 1: Firecrawl
+
         if self.firecrawl_app:
             try:
                 logger.info(f"Scraping with Firecrawl (Tier 1): {url}")

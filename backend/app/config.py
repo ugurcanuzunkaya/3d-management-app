@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +24,19 @@ class AppSettings(BaseSettings):
 
     # Server Configuration
     ip_address: str = "0.0.0.0"
+    allowed_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ]
+
+    @classmethod
+    @field_validator("allowed_origins", mode="before")
+    def parse_allowed_origins(cls, v):
+        if isinstance(v, str):
+            return [x.strip() for x in v.split(",") if x.strip()]
+        return v
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
