@@ -71,6 +71,7 @@ The backend engine for the 3D Management App, built with FastAPI and SQLModel. I
 - **Linting**: `ruff check .`
 - **Formatting**: `ruff format .`
 - **Type Checking**: `uv run ty check`
+- **Security Scan**: `trivy config .` (Static audit of configuration files/Dockerfiles)
 
 ## 📁 Project Structure
 

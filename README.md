@@ -49,6 +49,14 @@ The project is built with a modern, decoupled architecture:
 - **Backend**: [FastAPI](backend/README.md) + [SQLModel](backend/README.md) + [Alembic](backend/alembic/) + [PostgreSQL](backend/README.md)
 - **Infrastructure**: [Docker Compose](docker-compose.yml)
 
+## 🔒 Security & Container Hardening
+
+- **Non-Root Execution**: Both frontend and backend Docker containers are hardened to run as non-root users (`nginx` and `appuser` respectively) to satisfy modern security policies and CIS container image benchmarks.
+- **Unprivileged Ports**: The Nginx frontend server now runs on unprivileged internal port `8080` (mapped to port `3000` on the host).
+- **CORS Protection**: Access control origins are restricted to standard development hosts (`http://localhost:3000`, `http://localhost:5173`, and `127.0.0.1` equivalents) to block cross-origin request forgery.
+- **Base OS & Library Security**: Container base OS libraries are updated automatically during the build process, and python packages (such as `urllib3` for CVE-2023-45853) are pinned to safe versions.
+- **Trivy Audited**: Scanned and verified clean using `trivy` for both package dependencies and Docker configuration rules.
+
 ## 🚀 Quick Start
 
 ### 🐳 Option 1: Running with Docker (Recommended)
