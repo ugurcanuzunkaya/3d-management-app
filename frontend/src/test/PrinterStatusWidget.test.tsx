@@ -66,14 +66,7 @@ describe('PrinterStatusWidget - Telemetry and Offline Detection', () => {
       </MemoryRouter>
     );
 
-    await waitFor(() => {
-      expect(spyGet).toHaveBeenCalled();
-    });
-
-    // Wait for state updates to propagate
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    expect(screen.getByText(/RUNNING/i)).toBeInTheDocument();
+    expect(await screen.findByText(/RUNNING/i)).toBeInTheDocument();
     expect(screen.getByText('45%')).toBeInTheDocument();
     expect(screen.getByText(/60.*35.*220/)).toBeInTheDocument();
   });
@@ -120,13 +113,6 @@ describe('PrinterStatusWidget - Telemetry and Offline Detection', () => {
       </MemoryRouter>
     );
 
-    await waitFor(() => {
-      expect(spyGet).toHaveBeenCalled();
-    });
-
-    // Wait for state updates to propagate
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    expect(screen.getByText(/Printer Offline/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Printer Offline/i)).toBeInTheDocument();
   });
 });
