@@ -8,7 +8,7 @@ from app.database import engine
 from app.models import Printer
 from app.config import get_settings
 from app.dependencies import get_mqtt_service
-from app.routers import filaments, jobs, models, printer, settings
+from app.routers import filaments, jobs, models, printer, settings, privacy_presets
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -94,6 +94,7 @@ app.include_router(jobs.router, prefix="/api")
 app.include_router(models.router, prefix="/api")
 app.include_router(printer.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
+app.include_router(privacy_presets.router, prefix="/api")
 
 
 @app.get("/api/health")
