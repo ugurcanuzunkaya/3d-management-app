@@ -6,6 +6,8 @@ import { Activity, Thermometer, Clock, ChevronLeft, ChevronRight, Settings } fro
 import { Link } from 'react-router-dom';
 import api from '@/lib/api';
 import type { Printer } from '@/types';
+import { usePrivacy } from '@/context/PrivacyContext';
+import { PrivacyWrapper } from '@/components/shared/PrivacyWrapper';
 
 const PrinterStatusWidget = () => {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
@@ -36,29 +38,8 @@ const PrinterStatusWidget = () => {
   const [mountTime] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
   const [isHovered, setIsHovered] = useState(false);
-  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
-    const saved = localStorage.getItem('showPersonalInfo');
-    return saved ? JSON.parse(saved) : false;
-  });
-  const [privacySettings, setPrivacySettings] = useState(() => {
-    const saved = localStorage.getItem('privacySettings');
-    return saved ? JSON.parse(saved) : {};
-  });
 
-  useEffect(() => {
-    const handleUpdate = () => {
-      const savedShow = localStorage.getItem('showPersonalInfo');
-      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
-      const savedPriv = localStorage.getItem('privacySettings');
-      setPrivacySettings(savedPriv ? JSON.parse(savedPriv) : {});
-    };
-    window.addEventListener('credentials-visibility-change', handleUpdate);
-    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
-  }, []);
-
-  const isMasked = (key: string) => {
-    return !showPersonalInfo && !!privacySettings[key];
-  };
+  const { isMasked } = usePrivacy();
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 5000);
@@ -143,7 +124,9 @@ const PrinterStatusWidget = () => {
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-zinc-400" />
               <CardTitle className="text-sm font-bold uppercase tracking-wider font-mono">
-                {isMasked('maskPrinterTelemetryName') ? '•••••' : activePrinter.name}
+                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••••" inline>
+                  {activePrinter.name}
+                </PrivacyWrapper>
               </CardTitle>
             </div>
             {printers.length > 1 && (
@@ -165,7 +148,7 @@ const PrinterStatusWidget = () => {
             This printer is configured but marked inactive. Live telemetry monitoring is disabled.
           </p>
           <Link to="/printer">
-            <Button size="xs" variant="outline">Manage Printer</Button>
+            <Button size="sm" variant="outline">Manage Printer</Button>
           </Link>
         </CardContent>
       </Card>
@@ -237,7 +220,9 @@ const PrinterStatusWidget = () => {
               <span className="text-xs font-medium">Bed / Cham / Nozzle</span>
             </div>
             <div className="text-lg font-bold">
-              {isMasked('maskPrinterTelemetryName') ? '•• / •• / ••' : `${bedTemp}° / ${chamberTemp}° / ${nozzleTemp}°`}
+              <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•• / •• / ••" inline>
+                {bedTemp}° / {chamberTemp}° / {nozzleTemp}°
+              </PrivacyWrapper>
             </div>
           </div>
 
@@ -247,7 +232,9 @@ const PrinterStatusWidget = () => {
               <span className="text-xs font-medium">Remaining</span>
             </div>
             <div className="text-lg font-bold">
-              {isMasked('maskPrinterTelemetryName') ? '•••' : `${remainingTime}m`}
+              <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••" inline>
+                {remainingTime}m
+              </PrivacyWrapper>
             </div>
           </div>
         </div>
@@ -255,10 +242,16 @@ const PrinterStatusWidget = () => {
         <div className="mt-6 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="font-medium text-white/80">
-              Progress ({isMasked('maskPrinterTelemetryName') ? '••/••' : `${layerNum}/${totalLayers}`})
+              Progress (
+              <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="••/••" inline>
+                {layerNum}/{totalLayers}
+              </PrivacyWrapper>
+              )
             </span>
             <span className="font-bold">
-              {isMasked('maskPrinterTelemetryName') ? '••%' : `${progress}%`}
+              <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="••%" inline>
+                {progress}%
+              </PrivacyWrapper>
             </span>
           </div>
           <div className="h-2 w-full rounded-full bg-white/20 overflow-hidden">
@@ -270,7 +263,9 @@ const PrinterStatusWidget = () => {
         </div>
 
         <div className="mt-4 text-[10px] text-white/40 font-mono truncate">
-          {(showPersonalInfo || privacySettings.maskPrinterSubtaskName === false) ? (status.subtask_name || 'Printer Standby') : '••••••••••••••••'}
+          <PrivacyWrapper keyName="maskPrinterSubtaskName" placeholder="••••••••••••••••" inline>
+            {status.subtask_name || 'Printer Standby'}
+          </PrivacyWrapper>
         </div>
       </div>
     );
@@ -357,13 +352,17 @@ const PrinterStatusWidget = () => {
               gcodeState === 'RUNNING' ? 'bg-emerald-400 animate-pulse' : 'bg-blue-400'
             }`} />
             <CardTitle className="text-sm font-bold uppercase tracking-wider font-mono">
-              {isMasked('maskPrinterTelemetryName') ? '•••••' : activePrinter.name} ({isOffline ? 'OFFLINE' : isWarning ? 'UNCERTAIN' : gcodeState})
+              <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••••" inline>
+                {activePrinter.name}
+              </PrivacyWrapper> ({isOffline ? 'OFFLINE' : isWarning ? 'UNCERTAIN' : gcodeState})
             </CardTitle>
           </div>
           <div className="flex items-center gap-2">
             {!isOffline && !isWarning && hasValidData && (
               <div className="text-[10px] bg-white/15 px-2 py-0.5 rounded-full font-mono font-medium">
-                {isMasked('maskPrinterTelemetryName') ? '•••••' : getSpeedLabel(speedLvl)}
+                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••••" inline>
+                  {getSpeedLabel(speedLvl)}
+                </PrivacyWrapper>
               </div>
             )}
             {printers.length > 1 && (
@@ -417,8 +416,8 @@ const PrinterStatusWidget = () => {
                   setSlideDirection(idx > currentIndex ? 'left' : 'right');
                   setIsTransitioning(true);
                   setTimeout(() => {
-                    setCurrentIndex(idx);
-                    setIsTransitioning(false);
+                     setCurrentIndex(idx);
+                     setIsTransitioning(false);
                   }, 200);
                 }}
               />

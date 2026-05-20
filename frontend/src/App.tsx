@@ -11,6 +11,9 @@ import ModelLibrary from './pages/ModelLibrary';
 import SettingsPage from './pages/Settings';
 import PrinterPage from './pages/Printer';
 
+import { PrivacyProvider } from './context/PrivacyContext';
+import { PrivacyEditPanel } from './components/shared/PrivacyEditPanel';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -32,20 +35,23 @@ function App() {
       persistOptions={{ persister }}
     >
       <Router>
-        <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
-          <Navbar />
-          <main className="container mx-auto py-8 px-4 relative z-0">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/stock" element={<FilamentStock />} />
-              <Route path="/stock/settings" element={<StockSettingsPage />} />
-              <Route path="/models" element={<ModelLibrary />} />
-              <Route path="/printer" element={<PrinterPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-            </Routes>
-          </main>
-        </div>
+        <PrivacyProvider>
+          <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
+            <Navbar />
+            <main className="container mx-auto py-8 px-4 relative z-0">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/jobs" element={<Jobs />} />
+                <Route path="/stock" element={<FilamentStock />} />
+                <Route path="/stock/settings" element={<StockSettingsPage />} />
+                <Route path="/models" element={<ModelLibrary />} />
+                <Route path="/printer" element={<PrinterPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Routes>
+            </main>
+            <PrivacyEditPanel />
+          </div>
+        </PrivacyProvider>
       </Router>
     </PersistQueryClientProvider>
   );

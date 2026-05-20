@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { Link } from 'react-router-dom';
 import api from '@/lib/api';
 import type { FilamentType, FilamentColor, StockSettings } from '@/types';
 import { SettingsSkeleton } from '@/components/ui/Skeleton';
+import { usePrivacy } from '@/context/PrivacyContext';
+import { PrivacyWrapper } from '@/components/shared/PrivacyWrapper';
 
 const StockSettingsPage = () => {
   const queryClient = useQueryClient();
@@ -16,29 +18,7 @@ const StockSettingsPage = () => {
   const [newColorName, setNewColorName] = useState('');
   const [newColorHex, setNewColorHex] = useState('#000000');
 
-  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
-    const saved = localStorage.getItem('showPersonalInfo');
-    return saved ? JSON.parse(saved) : false;
-  });
-  const [privacySettings, setPrivacySettings] = useState(() => {
-    const saved = localStorage.getItem('privacySettings');
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  useEffect(() => {
-    const handleUpdate = () => {
-      const savedShow = localStorage.getItem('showPersonalInfo');
-      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
-      const savedPriv = localStorage.getItem('privacySettings');
-      setPrivacySettings(savedPriv ? JSON.parse(savedPriv) : {});
-    };
-    window.addEventListener('credentials-visibility-change', handleUpdate);
-    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
-  }, []);
-
-  const isMasked = (key: string) => {
-    return !showPersonalInfo && !!privacySettings[key];
-  };
+  const { isMasked } = usePrivacy();
 
   const { data: types, isLoading: loadingTypes } = useQuery<FilamentType[]>({
     queryKey: ['filament-types'],
@@ -101,7 +81,9 @@ const StockSettingsPage = () => {
         </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {isMasked('maskStockSettingsTitle') ? '•••••' : 'Stock Settings'}
+            <PrivacyWrapper keyName="maskStockSettingsTitle" placeholder="•••••" inline>
+              Stock Settings
+            </PrivacyWrapper>
           </h1>
           <p className="text-muted-foreground">Configure defaults, types, and colors for your inventory.</p>
         </div>
@@ -131,23 +113,27 @@ const StockSettingsPage = () => {
             >
               <div className="space-y-2">
                 <Label htmlFor="price">Default Price (TL/kg)</Label>
-                <Input
-                  id="price"
-                  name="price"
-                  type={isMasked('maskStockSettingsList') ? 'text' : 'number'}
-                  step="0.01"
-                  defaultValue={isMasked('maskStockSettingsList') ? '•••' : settings?.default_price_per_kg}
-                />
+                <PrivacyWrapper keyName="maskStockSettingsList" placeholder="•••" inline>
+                  <Input
+                    id="price"
+                    name="price"
+                    type={isMasked('maskStockSettingsList') ? 'text' : 'number'}
+                    step="0.01"
+                    defaultValue={isMasked('maskStockSettingsList') ? '•••' : settings?.default_price_per_kg}
+                  />
+                </PrivacyWrapper>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="weight">Default Spool Weight (g)</Label>
-                <Input
-                  id="weight"
-                  name="weight"
-                  type={isMasked('maskStockSettingsList') ? 'text' : 'number'}
-                  step="0.1"
-                  defaultValue={isMasked('maskStockSettingsList') ? '•••' : settings?.default_weight_g}
-                />
+                <PrivacyWrapper keyName="maskStockSettingsList" placeholder="•••" inline>
+                  <Input
+                    id="weight"
+                    name="weight"
+                    type={isMasked('maskStockSettingsList') ? 'text' : 'number'}
+                    step="0.1"
+                    defaultValue={isMasked('maskStockSettingsList') ? '•••' : settings?.default_weight_g}
+                  />
+                </PrivacyWrapper>
               </div>
               <div className="md:col-span-2 flex justify-end">
                 <Button type="submit" disabled={updateSettingsMutation.isPending}>
@@ -184,7 +170,9 @@ const StockSettingsPage = () => {
               {types?.map(type => (
                 <div key={type.id} className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
                   <span className="text-sm font-medium">
-                    {isMasked('maskStockSettingsList') ? '•••••' : type.name}
+                    <PrivacyWrapper keyName="maskStockSettingsList" placeholder="•••••" inline>
+                      {type.name}
+                    </PrivacyWrapper>
                   </span>
                   <Button
                     variant="ghost"
@@ -239,10 +227,14 @@ const StockSettingsPage = () => {
                       style={{ backgroundColor: isMasked('maskStockSettingsList') ? '#000000' : color.hex_code }}
                     ></div>
                     <span className="text-sm font-medium">
-                      {isMasked('maskStockSettingsList') ? '•••••' : color.name}
+                      <PrivacyWrapper keyName="maskStockSettingsList" placeholder="•••••" inline>
+                        {color.name}
+                      </PrivacyWrapper>
                     </span>
                     <span className="text-xs text-muted-foreground uppercase">
-                      {isMasked('maskStockSettingsList') ? '•••••' : color.hex_code}
+                      <PrivacyWrapper keyName="maskStockSettingsList" placeholder="•••••" inline>
+                        {color.hex_code}
+                      </PrivacyWrapper>
                     </span>
                   </div>
                   <Button

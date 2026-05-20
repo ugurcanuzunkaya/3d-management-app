@@ -4,6 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import PrinterStatusWidget from '../components/dashboard/PrinterStatusWidget';
 import api from '../lib/api';
 
+import { MemoryRouter } from 'react-router-dom';
+import { PrivacyProvider } from '../context/PrivacyContext';
+
 describe('PrinterStatusWidget - Telemetry and Offline Detection', () => {
   let queryClient: QueryClient;
 
@@ -54,9 +57,13 @@ describe('PrinterStatusWidget - Telemetry and Offline Detection', () => {
     });
 
     render(
-      <QueryClientProvider client={queryClient}>
-        <PrinterStatusWidget />
-      </QueryClientProvider>
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <PrivacyProvider>
+            <PrinterStatusWidget />
+          </PrivacyProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
     );
 
     await waitFor(() => {
@@ -104,9 +111,13 @@ describe('PrinterStatusWidget - Telemetry and Offline Detection', () => {
     });
 
     render(
-      <QueryClientProvider client={queryClient}>
-        <PrinterStatusWidget />
-      </QueryClientProvider>
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <PrivacyProvider>
+            <PrinterStatusWidget />
+          </PrivacyProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
     );
 
     await waitFor(() => {

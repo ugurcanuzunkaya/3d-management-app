@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -10,34 +10,11 @@ import api from '@/lib/api';
 import type { PrintJob, Filament, JobFilament, Settings } from '@/types';
 import { format } from 'date-fns';
 import { JobsSkeleton } from '@/components/ui/Skeleton';
+import { PrivacyWrapper } from '@/components/shared/PrivacyWrapper';
 
 const Jobs = () => {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
-    const saved = localStorage.getItem('showPersonalInfo');
-    return saved ? JSON.parse(saved) : false;
-  });
-  const [privacySettings, setPrivacySettings] = useState(() => {
-    const saved = localStorage.getItem('privacySettings');
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  useEffect(() => {
-    const handleUpdate = () => {
-      const savedShow = localStorage.getItem('showPersonalInfo');
-      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
-      const savedPriv = localStorage.getItem('privacySettings');
-      setPrivacySettings(savedPriv ? JSON.parse(savedPriv) : {});
-    };
-    window.addEventListener('credentials-visibility-change', handleUpdate);
-    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
-  }, []);
-
-  const isMasked = (key: string) => {
-    return !showPersonalInfo && !!privacySettings[key];
-  };
-
   const [editingJobId, setEditingJobId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -217,7 +194,11 @@ const Jobs = () => {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">{isMasked('maskJobsTitle') ? '•••••' : 'Print Jobs'}</h1>
+          <h1 className="text-3xl font-bold">
+            <PrivacyWrapper keyName="maskJobsTitle" placeholder="•••••" inline>
+              Print Jobs
+            </PrivacyWrapper>
+          </h1>
           <p className="text-muted-foreground">Track and manage your manual and automated print jobs.</p>
         </div>
         <div className="flex gap-2">
@@ -281,7 +262,9 @@ const Jobs = () => {
                     <div>
                       <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Calculated Production Cost</p>
                       <p className="text-2xl font-black text-blue-700 dark:text-blue-300">
-                        ₺{(showPersonalInfo || privacySettings.maskJobProductionCost === false) ? productionCost.toFixed(2) : '•••.••'}
+                        <PrivacyWrapper keyName="maskJobProductionCost" placeholder="•••.••" inline>
+                          ₺{productionCost.toFixed(2)}
+                        </PrivacyWrapper>
                       </p>
                     </div>
                   </div>
@@ -351,12 +334,24 @@ const Jobs = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Job Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Filaments</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Price / Prod.</TableHead>
+                <TableHead>
+                  <PrivacyWrapper keyName="maskJobDate" inline>Date</PrivacyWrapper>
+                </TableHead>
+                <TableHead>
+                  <PrivacyWrapper keyName="maskJobName" inline>Job Name</PrivacyWrapper>
+                </TableHead>
+                <TableHead>
+                  <PrivacyWrapper keyName="maskJobType" inline>Type</PrivacyWrapper>
+                </TableHead>
+                <TableHead>
+                  <PrivacyWrapper keyName="maskJobFilaments" inline>Filaments</PrivacyWrapper>
+                </TableHead>
+                <TableHead>
+                  <PrivacyWrapper keyName="maskJobDuration" inline>Duration</PrivacyWrapper>
+                </TableHead>
+                <TableHead>
+                  <PrivacyWrapper keyName="maskJobTotalCost" inline>Price</PrivacyWrapper> / <PrivacyWrapper keyName="maskJobProductionCost" inline>Prod.</PrivacyWrapper> / <PrivacyWrapper keyName="maskJobProfit" inline>Profit</PrivacyWrapper>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -374,43 +369,59 @@ const Jobs = () => {
               {jobs?.map((job) => (
                 <TableRow key={job.id} className="hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
                   <TableCell className="font-medium font-mono text-xs">
-                    {(showPersonalInfo || privacySettings.maskJobDate === false) ? format(new Date(job.created_at), 'MMM dd, HH:mm') : '••••••••••••'}
+                    <PrivacyWrapper keyName="maskJobDate" placeholder="••••••••••••" inline>
+                      {format(new Date(job.created_at), 'MMM dd, HH:mm')}
+                    </PrivacyWrapper>
                   </TableCell>
-                  <TableCell className="font-bold">{(showPersonalInfo || privacySettings.maskJobName === false) ? job.name : '••••••••••••'}</TableCell>
+                  <TableCell className="font-bold">
+                    <PrivacyWrapper keyName="maskJobName" placeholder="••••••••••••" inline>
+                      {job.name}
+                    </PrivacyWrapper>
+                  </TableCell>
                   <TableCell>
                     <span className="px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase font-mono">
-                      {(showPersonalInfo || privacySettings.maskJobType === false) ? (job.job_type || 'N/A') : '•••••'}
+                      <PrivacyWrapper keyName="maskJobType" placeholder="•••••" inline>
+                        {job.job_type || 'N/A'}
+                      </PrivacyWrapper>
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {(showPersonalInfo || privacySettings.maskJobFilaments === false) ? (
-                        <>
-                          {job.filaments?.map((f, i) => (
-                            <span key={i} className="flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px]">
-                              <Package className="w-3 h-3" />
-                              {f.name}
-                            </span>
-                          ))}
-                          {(!job.filaments || job.filaments.length === 0) && '-'}
-                        </>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground font-mono">••••••••</span>
-                      )}
-                    </div>
+                    <PrivacyWrapper keyName="maskJobFilaments" placeholder="••••••••" inline>
+                      <div className="flex flex-wrap gap-1">
+                        {job.filaments?.map((f, i) => (
+                          <span key={i} className="flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px]">
+                            <Package className="w-3 h-3" />
+                            {f.name}
+                          </span>
+                        ))}
+                        {(!job.filaments || job.filaments.length === 0) && '-'}
+                      </div>
+                    </PrivacyWrapper>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{(showPersonalInfo || privacySettings.maskJobDuration === false) ? `${job.duration_minutes}m` : '•••'}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <PrivacyWrapper keyName="maskJobDuration" placeholder="•••" inline>
+                      {job.duration_minutes}m
+                    </PrivacyWrapper>
+                  </TableCell>
                   <TableCell className="font-mono">
                     <div className="flex flex-col">
                       <span className="font-bold text-green-600 font-mono">
-                        {(showPersonalInfo || privacySettings.maskJobTotalCost === false) ? `₺${job.total_cost.toFixed(2)}` : '₺•••.••'}
+                        <PrivacyWrapper keyName="maskJobTotalCost" placeholder="₺•••.••" inline>
+                          ₺{job.total_cost.toFixed(2)}
+                        </PrivacyWrapper>
                       </span>
                       <div className="flex gap-2 items-center text-[10px] font-mono">
                         <span className="text-muted-foreground opacity-70">
-                          Cost: {(showPersonalInfo || privacySettings.maskJobProductionCost === false) ? `₺${job.production_cost.toFixed(2)}` : '₺•••.••'}
+                          Cost:{' '}
+                          <PrivacyWrapper keyName="maskJobProductionCost" placeholder="₺•••.••" inline>
+                            ₺{job.production_cost.toFixed(2)}
+                          </PrivacyWrapper>
                         </span>
                         <span className="text-blue-600 font-bold">
-                          P: {(showPersonalInfo || privacySettings.maskJobProfit === false) ? `₺${(job.total_cost - job.production_cost).toFixed(2)}` : '₺•••.••'}
+                          P:{' '}
+                          <PrivacyWrapper keyName="maskJobProfit" placeholder="₺•••.••" inline>
+                            ₺{(job.total_cost - job.production_cost).toFixed(2)}
+                          </PrivacyWrapper>
                         </span>
                       </div>
                     </div>

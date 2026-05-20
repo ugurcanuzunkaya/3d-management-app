@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,34 +9,11 @@ import ModelFormModal from '@/components/models/ModelFormModal';
 import DeleteConfirmModal from '@/components/models/DeleteConfirmModal';
 import type { Model3D } from '@/types';
 import { LibrarySkeleton } from '@/components/ui/Skeleton';
+import { PrivacyWrapper } from '@/components/shared/PrivacyWrapper';
 
 const ModelLibrary = () => {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-
-  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
-    const saved = localStorage.getItem('showPersonalInfo');
-    return saved ? JSON.parse(saved) : false;
-  });
-  const [privacySettings, setPrivacySettings] = useState(() => {
-    const saved = localStorage.getItem('privacySettings');
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  useEffect(() => {
-    const handleUpdate = () => {
-      const savedShow = localStorage.getItem('showPersonalInfo');
-      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
-      const savedPriv = localStorage.getItem('privacySettings');
-      setPrivacySettings(savedPriv ? JSON.parse(savedPriv) : {});
-    };
-    window.addEventListener('credentials-visibility-change', handleUpdate);
-    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
-  }, []);
-
-  const isMasked = (key: string) => {
-    return !showPersonalInfo && !!privacySettings[key];
-  };
 
   // Modals state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -123,7 +100,9 @@ const ModelLibrary = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {isMasked('maskLibraryTitle') ? '•••••' : 'Model Library'}
+            <PrivacyWrapper keyName="maskLibraryTitle" placeholder="•••••" inline>
+              Model Library
+            </PrivacyWrapper>
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             Manage physical specifications, slicing parameters, and AI-scanned assets.
@@ -152,7 +131,9 @@ const ModelLibrary = () => {
         <div className="flex items-center gap-6 text-xs text-muted-foreground shrink-0 border border-zinc-200 bg-white px-3 py-1.5 rounded-lg shadow-sm">
           <div className="flex items-center gap-1.5">
             <span className="font-bold text-foreground text-sm">
-              {isMasked('maskLibraryModelName') ? '••' : models.length}
+              <PrivacyWrapper keyName="maskLibraryStats" placeholder="••" inline>
+                {models.length}
+              </PrivacyWrapper>
             </span>
             <span>Total Models</span>
           </div>

@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Box } from 'lucide-react';
@@ -6,6 +5,8 @@ import api from '@/lib/api';
 import PrinterStatusWidget from '@/components/dashboard/PrinterStatusWidget';
 import type { Filament } from '@/types';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
+import { usePrivacy } from '@/context/PrivacyContext';
+import { PrivacyWrapper } from '@/components/shared/PrivacyWrapper';
 
 const Dashboard = () => {
   const { data: filaments, isLoading } = useQuery<Filament[]>({
@@ -13,30 +14,7 @@ const Dashboard = () => {
     queryFn: () => api.get('/api/filaments').then(res => res.data)
   });
 
-  const [showPersonalInfo, setShowPersonalInfo] = useState(() => {
-    const saved = localStorage.getItem('showPersonalInfo');
-    return saved ? JSON.parse(saved) : false;
-  });
-
-  const [privacySettings, setPrivacySettings] = useState(() => {
-    const saved = localStorage.getItem('privacySettings');
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  useEffect(() => {
-    const handleUpdate = () => {
-      const savedShow = localStorage.getItem('showPersonalInfo');
-      setShowPersonalInfo(savedShow ? JSON.parse(savedShow) : false);
-      const savedPrivacy = localStorage.getItem('privacySettings');
-      setPrivacySettings(savedPrivacy ? JSON.parse(savedPrivacy) : {});
-    };
-    window.addEventListener('credentials-visibility-change', handleUpdate);
-    return () => window.removeEventListener('credentials-visibility-change', handleUpdate);
-  }, []);
-
-  const isMasked = (key: string) => {
-    return !showPersonalInfo && !!privacySettings[key];
-  };
+  const { isMasked } = usePrivacy();
 
   if (isLoading) return <DashboardSkeleton />;
 
@@ -50,7 +28,9 @@ const Dashboard = () => {
     <div className="space-y-8">
       <div className="flex flex-col gap-2">
         <h1 className="text-4xl font-bold tracking-tight">
-          {isMasked('maskDashboardTitle') ? '•••••' : 'Dashboard'}
+          <PrivacyWrapper keyName="maskDashboardTitle" placeholder="•••••" inline>
+            Dashboard
+          </PrivacyWrapper>
         </h1>
         <p className="text-muted-foreground">Welcome to your 3D printing control center.</p>
       </div>
@@ -71,7 +51,9 @@ const Dashboard = () => {
             <CardContent className="space-y-6">
               <div className="flex items-baseline gap-2">
                 <span className="text-5xl font-bold tracking-tighter text-indigo-600 dark:text-indigo-400">
-                  {isMasked('maskDashboardStats') ? '•••••' : (filaments?.length || 0)}
+                  <PrivacyWrapper keyName="maskDashboardStats" placeholder="•••••" inline>
+                    {filaments?.length || 0}
+                  </PrivacyWrapper>
                 </span>
                 <span className="text-sm font-semibold text-indigo-950/60 dark:text-indigo-200/60 uppercase tracking-widest">
                   Active Filament Spools
@@ -84,7 +66,9 @@ const Dashboard = () => {
                     Total Warehouse Weight
                   </span>
                   <span className="text-2xl font-bold text-indigo-950 dark:text-indigo-50">
-                    {isMasked('maskDashboardStats') ? '•••••' : `${totalWeightKg.toFixed(2)} kg`}
+                    <PrivacyWrapper keyName="maskDashboardStats" placeholder="•••••" inline>
+                      {totalWeightKg.toFixed(2)} kg
+                    </PrivacyWrapper>
                   </span>
                 </div>
                 <div className="h-3 w-full rounded-full bg-indigo-100/50 dark:bg-indigo-950/50 overflow-hidden">
