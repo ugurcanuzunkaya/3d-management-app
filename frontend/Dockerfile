@@ -14,7 +14,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN bun run build
 
 # Serve with Nginx
-FROM nginx:alpine AS run
+FROM nginxinc/nginx-unprivileged:alpine AS run
 
 # Copy the custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
@@ -22,7 +22,9 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy the built app to Nginx's web root
 COPY --from=build /app/dist /usr/share/nginx/html
 
-EXPOSE 80
+EXPOSE 8080
+
+USER nginx
 
 CMD ["nginx", "-g", "daemon off;"]
 
