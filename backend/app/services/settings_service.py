@@ -8,7 +8,14 @@ class SettingsService:
     def get_or_create_settings(session: Session) -> Settings:
         settings = session.exec(select(Settings)).first()
         if not settings:
-            settings = Settings(electric_price=2.5, fallback_wattage=200.0)
+            settings = Settings(
+                electric_price=2.5,
+                fallback_wattage=200.0,
+                markup_multiplier=3.0,
+                machine_hourly_rate=0.0,
+                failure_rate_pct=0.0,
+                currency="TRY",
+            )
             session.add(settings)
             session.commit()
             session.refresh(settings)
@@ -19,6 +26,10 @@ class SettingsService:
         settings = SettingsService.get_or_create_settings(session)
         settings.electric_price = data.electric_price
         settings.fallback_wattage = data.fallback_wattage
+        settings.markup_multiplier = data.markup_multiplier
+        settings.machine_hourly_rate = data.machine_hourly_rate
+        settings.failure_rate_pct = data.failure_rate_pct
+        settings.currency = data.currency or "TRY"
         session.add(settings)
         session.commit()
         session.refresh(settings)
@@ -29,7 +40,9 @@ class SettingsService:
         settings = session.exec(select(StockSettings)).first()
         if not settings:
             settings = StockSettings(
-                default_price_per_kg=500.0, default_weight_g=1000.0
+                default_price_per_kg=500.0,
+                default_weight_g=1000.0,
+                low_stock_threshold=200.0,
             )
             session.add(settings)
             session.commit()
@@ -45,6 +58,8 @@ class SettingsService:
             settings.default_price_per_kg = data.default_price_per_kg
         if data.default_weight_g is not None:
             settings.default_weight_g = data.default_weight_g
+        if data.low_stock_threshold is not None:
+            settings.low_stock_threshold = data.low_stock_threshold
         session.add(settings)
         session.commit()
         session.refresh(settings)

@@ -17,6 +17,15 @@ def list_models(session: Session = Depends(get_session)):
     return session.exec(statement).all()
 
 
+@router.get("/ollama-models", response_model=List[str])
+async def list_ollama_models(
+    settings: AppSettings = Depends(get_settings_dep),
+) -> List[str]:
+    """Dynamically list locally available Ollama models without hardcoding model names."""
+    ai_service = AIService(settings)
+    return await ai_service.list_ollama_models()
+
+
 @router.get("/{model_id}", response_model=Model3D)
 def get_model(model_id: int, session: Session = Depends(get_session)):
     """Retrieve details of a specific 3D model."""

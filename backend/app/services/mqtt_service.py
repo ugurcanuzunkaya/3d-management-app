@@ -1,20 +1,47 @@
+import copy
 import json
 import logging
 import ssl
+import threading
 import time
-from typing import Dict
+from typing import Any, Callable, Dict, Optional
 import paho.mqtt.client as mqtt
+from sqlmodel import Session
+from app.database import engine
+from app.services.job_service import JobService
 
 logger = logging.getLogger(__name__)
 
 
+def _deep_merge(target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
+    for key, value in source.items():
+        if key in target and isinstance(target[key], dict) and isinstance(value, dict):
+            _deep_merge(target[key], value)
+        else:
+            target[key] = copy.deepcopy(value)
+    return target
+
+
 class PrinterConnection:
-    def __init__(self, printer_id: int, host: str, serial: str, access_code: str):
+    def __init__(
+        self,
+        printer_id: int,
+        host: str,
+        serial: str,
+        access_code: str,
+        session_factory: Optional[Callable[[], Session]] = None,
+    ):
         self.printer_id = printer_id
         self.host = host.strip()
         self.serial = serial.strip()
         self.access_code = access_code.strip()
-        self.client = mqtt.Client()
+        self.session_factory = session_factory
+        self._lock = threading.Lock()
+        callback_api = getattr(mqtt, "CallbackAPIVersion", None)
+        if callback_api is not None:
+            self.client = mqtt.Client(callback_api.VERSION2)
+        else:
+            self.client = mqtt.Client()
         self.client.username_pw_set("bblp", self.access_code)
 
         # Configure TLS to bypass certificate verification for local printer
@@ -23,16 +50,16 @@ class PrinterConnection:
 
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
-        self.last_status: Dict = {}
+        self.last_status: Dict[str, Any] = {}
         self.received_first_message = False
         self.last_request_time = 0.0
 
-    def on_connect(self, client, userdata, flags, rc):
+    def on_connect(self, client, userdata, flags, rc, properties=None):
         if rc == 0:
             logger.info(
                 f"Connected to Bambu Printer MQTT for ID {self.printer_id} ({self.serial})"
             )
-            self.client.subscribe("#")
+            self.client.subscribe(f"device/{self.serial}/report")
             push_command = {"pushing": {"sequence_id": "0", "command": "pushall"}}
             self.client.publish(
                 f"device/{self.serial}/request", json.dumps(push_command)
@@ -43,21 +70,44 @@ class PrinterConnection:
                 f"Failed to connect to MQTT for printer ID {self.printer_id}, rc: {rc}"
             )
 
+    def _handle_print_finished(self, status_snapshot: Dict[str, Any]) -> None:
+        try:
+            if self.session_factory is not None:
+                sess = self.session_factory()
+                JobService.create_pending_job_from_mqtt(
+                    sess, self.printer_id, status_snapshot
+                )
+            else:
+                with Session(engine) as sess:
+                    JobService.create_pending_job_from_mqtt(
+                        sess, self.printer_id, status_snapshot
+                    )
+        except Exception as e:
+            logger.error(
+                f"Error creating pending print job for printer ID {self.printer_id}: {e}"
+            )
+
     def on_message(self, client, userdata, msg):
         try:
             current_time = time.time()
             payload = json.loads(msg.payload.decode())
 
-            if "print" in payload:
+            if isinstance(payload, dict) and isinstance(payload.get("print"), dict):
                 print_data = payload["print"]
+                status_snapshot: Optional[Dict[str, Any]] = None
+                with self._lock:
+                    prev_state = self.last_status.get("gcode_state")
+                    _deep_merge(self.last_status, print_data)
+                    self.last_status["_internal_timestamp"] = current_time
+                    new_state = self.last_status.get("gcode_state")
+                    if (
+                        prev_state in ("RUNNING", "PAUSE", "PREPARE")
+                        and new_state == "FINISH"
+                    ):
+                        status_snapshot = copy.deepcopy(self.last_status)
 
-                # Throttle processing to once per 5 seconds
-                last_update = self.last_status.get("_internal_timestamp", 0)
-                if current_time - last_update < 5:
-                    return
-
-                print_data["_internal_timestamp"] = current_time
-                self.last_status.update(print_data)
+                if status_snapshot is not None:
+                    self._handle_print_finished(status_snapshot)
 
                 if not self.received_first_message:
                     logger.info(
@@ -80,6 +130,41 @@ class PrinterConnection:
             f"Manual poll requested for printer ID {self.printer_id} ({self.serial})"
         )
 
+    def set_ams_filament_setting(
+        self,
+        slot_index: int,
+        tray_type: str,
+        tray_color_hex: str,
+        nozzle_temp_min: int = 190,
+        nozzle_temp_max: int = 240,
+    ) -> None:
+        clean_hex = tray_color_hex.lstrip("#").upper()
+        if len(clean_hex) == 6:
+            clean_hex = f"{clean_hex}FF"
+        elif len(clean_hex) != 8:
+            clean_hex = "FFFFFFFF"
+
+        ams_id = 255 if slot_index == 254 else 0
+        command_payload = {
+            "print": {
+                "sequence_id": "0",
+                "command": "ams_filament_setting",
+                "ams_id": ams_id,
+                "tray_id": slot_index,
+                "tray_info_idx": "GFL99",
+                "tray_color": clean_hex,
+                "nozzle_temp_min": nozzle_temp_min,
+                "nozzle_temp_max": nozzle_temp_max,
+                "tray_type": tray_type or "PLA",
+            }
+        }
+        self.client.publish(
+            f"device/{self.serial}/request", json.dumps(command_payload)
+        )
+        logger.info(
+            f"Published ams_filament_setting for printer ID {self.printer_id} slot {slot_index}"
+        )
+
     def get_status(self):
         current_time = time.time()
 
@@ -93,7 +178,43 @@ class PrinterConnection:
         except Exception:
             is_connected = False
 
-        status_data = {**self.last_status}
+        with self._lock:
+            status_data = copy.deepcopy(self.last_status)
+
+        # Normalize Bambu Lab P2S nested telemetry fields
+        if status_data.get("chamber_temper") is None:
+            ctc_temp = (
+                status_data.get("device", {}).get("ctc", {}).get("info", {}).get("temp")
+                if isinstance(status_data.get("device"), dict)
+                else None
+            )
+            info_temp = (
+                status_data.get("info", {}).get("temp")
+                if isinstance(status_data.get("info"), dict)
+                else None
+            )
+            resolved_chamber = ctc_temp if ctc_temp is not None else info_temp
+            if resolved_chamber is not None:
+                status_data["chamber_temper"] = resolved_chamber
+
+        three_d = status_data.get("3D")
+        if isinstance(three_d, dict):
+            if status_data.get("layer_num") is None and "layer_num" in three_d:
+                status_data["layer_num"] = three_d["layer_num"]
+            if (
+                status_data.get("total_layer_num") is None
+                and "total_layer_num" in three_d
+            ):
+                status_data["total_layer_num"] = three_d["total_layer_num"]
+
+        vir_slot = status_data.get("vir_slot")
+        if (
+            "vt_tray" not in status_data
+            and isinstance(vir_slot, list)
+            and len(vir_slot) > 0
+            and isinstance(vir_slot[0], dict)
+        ):
+            status_data["vt_tray"] = vir_slot[0]
 
         # Determine offline status based on connection, request-response timeouts, and telemetry data
         is_offline = False
@@ -160,9 +281,10 @@ class PrinterConnection:
 
 
 class BambuMQTTService:
-    def __init__(self):
+    def __init__(self, session_factory: Optional[Callable[[], Session]] = None):
         self.connections: Dict[int, PrinterConnection] = {}
         self.is_running = False
+        self.session_factory = session_factory
 
     def register_printer(
         self, printer_id: int, host: str, serial: str, access_code: str
@@ -170,7 +292,13 @@ class BambuMQTTService:
         if printer_id in self.connections:
             self.unregister_printer(printer_id)
 
-        conn = PrinterConnection(printer_id, host, serial, access_code)
+        conn = PrinterConnection(
+            printer_id,
+            host,
+            serial,
+            access_code,
+            session_factory=self.session_factory,
+        )
         self.connections[printer_id] = conn
         if self.is_running:
             try:
@@ -199,6 +327,25 @@ class BambuMQTTService:
         conn = self.connections.get(printer_id)
         if conn:
             conn.manual_poll()
+
+    def set_ams_filament_setting(
+        self,
+        printer_id: int,
+        slot_index: int,
+        tray_type: str,
+        tray_color_hex: str,
+        nozzle_temp_min: int = 190,
+        nozzle_temp_max: int = 240,
+    ) -> None:
+        conn = self.connections.get(printer_id)
+        if conn:
+            conn.set_ams_filament_setting(
+                slot_index=slot_index,
+                tray_type=tray_type,
+                tray_color_hex=tray_color_hex,
+                nozzle_temp_min=nozzle_temp_min,
+                nozzle_temp_max=nozzle_temp_max,
+            )
 
     def manual_poll_all(self):
         for conn in self.connections.values():

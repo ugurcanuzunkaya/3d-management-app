@@ -43,7 +43,7 @@ class AIService:
                 "FIRECRAWL_API_KEY not set. Firecrawl scraping will be bypassed."
             )
 
-        # 2. Gemini Client (Uses gemini-3.1-flash-lite)
+        # 2. Gemini Client (Uses gemini-3.8-flash)
         self.gemini_key = settings.gemini_api_key or os.getenv("GEMINI_API_KEY")
         if self.gemini_key:
             try:
@@ -94,6 +94,7 @@ class AIService:
         # 5. Ollama Client
         try:
             import ollama
+
             self.ollama_client = ollama.AsyncClient(host=self.settings.ollama_base_url)
         except Exception as e:
             logger.error(f"Failed to initialize Ollama Client: {e}")
@@ -187,19 +188,80 @@ class AIService:
 
         return None
 
+    async def list_ollama_models(self) -> list[str]:
+        """Dynamically queries the local Ollama server for installed models without hardcoding names."""
+        base_url = self.settings.ollama_base_url.rstrip("/")
+        models: list[str] = []
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                response = await client.get(f"{base_url}/api/tags")
+                if response.status_code == 200:
+                    payload = response.json()
+                    raw_models = (
+                        payload.get("models", []) if isinstance(payload, dict) else []
+                    )
+                    for item in raw_models:
+                        if isinstance(item, dict):
+                            name = str(
+                                item.get("name") or item.get("model") or ""
+                            ).strip()
+                            if name and name not in models:
+                                models.append(name)
+                    return models
+        except Exception as e:
+            logger.debug(f"Ollama /api/tags check failed: {e}")
+
+        if self.ollama_client:
+            try:
+                listed = await self.ollama_client.list()
+                raw_list = getattr(listed, "models", None) or (
+                    listed.get("models", []) if isinstance(listed, dict) else []
+                )
+                for item in raw_list:
+                    name = str(
+                        getattr(item, "model", None)
+                        or getattr(item, "name", None)
+                        or (
+                            item.get("name") or item.get("model")
+                            if isinstance(item, dict)
+                            else ""
+                        )
+                        or ""
+                    ).strip()
+                    if name and name not in models:
+                        models.append(name)
+            except Exception as e:
+                logger.debug(f"Ollama client.list() fallback failed: {e}")
+
+        return models
+
+    async def _resolve_ollama_models(self, requested_provider: str) -> list[str]:
+        """Resolves the ordered list of local Ollama models to try."""
+        models_to_try: list[str] = []
+        if ":" in requested_provider:
+            _, explicit_model = requested_provider.split(":", 1)
+            explicit_model = explicit_model.strip()
+            if explicit_model:
+                models_to_try.append(explicit_model)
+
+        discovered = await self.list_ollama_models()
+        for m in discovered:
+            if m not in models_to_try:
+                models_to_try.append(m)
+        return models_to_try
+
     def _get_active_provider(self, requested_provider: str) -> str:
         """Determines the active AI Provider based on API key availability and fallback logic."""
-        req = requested_provider.lower().strip()
+        raw = requested_provider.strip()
+        req = raw.lower()
         if req == "gemini" and self.gemini_client:
             return "gemini"
         elif req == "openai" and self.openai_client:
             return "openai"
         elif req == "claude" and self.anthropic_client:
             return "claude"
-        elif req == "ollama_gemma4":
-            return "ollama_gemma4"
-        elif req == "ollama_qwen3.5":
-            return "ollama_qwen3.5"
+        elif req == "ollama" or req.startswith("ollama:"):
+            return raw
 
         # Fallbacks based on availability
         if self.gemini_client:
@@ -208,7 +270,7 @@ class AIService:
             return "openai"
         elif self.anthropic_client:
             return "claude"
-        return "ollama_qwen3.5"
+        return "ollama"
 
     def _clean_and_parse_json(self, text: str) -> dict:
         """Strips markdown block wraps and parses JSON safely."""
@@ -254,7 +316,7 @@ class AIService:
         try:
             if active_provider == "gemini" and self.gemini_client:
                 response = await self.gemini_client.aio.models.generate_content(
-                    model="gemini-3.1-flash-lite",
+                    model="gemini-3.8-flash",
                     contents=prompt,
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
@@ -294,21 +356,20 @@ class AIService:
                 data = self._clean_and_parse_json(str(first_content.text))
                 return ModelExtractionResult.model_validate(data)
 
-            elif active_provider in ("ollama_qwen3.5", "ollama_gemma4"):
+            elif (
+                active_provider.lower() == "ollama"
+                or active_provider.lower().startswith("ollama:")
+            ):
                 client = self.ollama_client
                 if not client:
                     import ollama
+
                     client = ollama.AsyncClient(host=self.settings.ollama_base_url)
-                if active_provider == "ollama_gemma4":
-                    models_to_try = [
-                        self.settings.ollama_model_gemma,
-                        self.settings.ollama_model_qwen,
-                    ]
-                else:
-                    models_to_try = [
-                        self.settings.ollama_model_qwen,
-                        self.settings.ollama_model_gemma,
-                    ]
+                models_to_try = await self._resolve_ollama_models(active_provider)
+                if not models_to_try:
+                    raise ValueError(
+                        "No local Ollama models found. Ensure Ollama is running and has at least one model pulled."
+                    )
 
                 last_err = None
                 for model_name in models_to_try:
@@ -430,7 +491,7 @@ class AIService:
         try:
             if active_provider == "gemini" and self.gemini_client:
                 response = await self.gemini_client.aio.models.generate_content(
-                    model="gemini-3.1-flash-lite",
+                    model="gemini-3.8-flash",
                     contents=[
                         types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
                         schema_instruction,
@@ -497,22 +558,21 @@ class AIService:
                 data = self._clean_and_parse_json(str(first_content.text))
                 return ModelExtractionResult.model_validate(data)
 
-            elif active_provider in ("ollama_qwen3.5", "ollama_gemma4"):
+            elif (
+                active_provider.lower() == "ollama"
+                or active_provider.lower().startswith("ollama:")
+            ):
                 base64_image = base64.b64encode(image_bytes).decode("utf-8")
                 client = self.ollama_client
                 if not client:
                     import ollama
+
                     client = ollama.AsyncClient(host=self.settings.ollama_base_url)
-                if active_provider == "ollama_gemma4":
-                    models_to_try = [
-                        self.settings.ollama_model_gemma,
-                        self.settings.ollama_model_qwen,
-                    ]
-                else:
-                    models_to_try = [
-                        self.settings.ollama_model_qwen,
-                        self.settings.ollama_model_gemma,
-                    ]
+                models_to_try = await self._resolve_ollama_models(active_provider)
+                if not models_to_try:
+                    raise ValueError(
+                        "No local Ollama models found. Ensure Ollama is running and has at least one vision model pulled."
+                    )
 
                 last_err = None
                 for model_name in models_to_try:

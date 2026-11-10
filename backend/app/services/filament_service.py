@@ -1,6 +1,8 @@
-from typing import List
+from typing import Any, List, cast
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 from app.models.filament import Filament, FilamentType, FilamentColor
+from app.models.printer import PrinterSlotAssignment
 from app.schemas.filament import (
     FilamentCreate,
     FilamentUpdate,
@@ -13,7 +15,11 @@ from app.exceptions import NotFoundException, ConflictException
 class FilamentService:
     @staticmethod
     def list_filaments(session: Session) -> List[Filament]:
-        return list(session.exec(select(Filament)).all())
+        stmt = select(Filament).options(
+            selectinload(cast(Any, Filament.filament_type)),
+            selectinload(cast(Any, Filament.filament_color)),
+        )
+        return list(session.exec(stmt).all())
 
     @staticmethod
     def get_filament(session: Session, filament_id: int) -> Filament:
@@ -25,6 +31,7 @@ class FilamentService:
     @staticmethod
     def create_filament(session: Session, data: FilamentCreate) -> Filament:
         filament = Filament.model_validate(data)
+        filament.remaining_weight_g = max(0.0, filament.remaining_weight_g)
         session.add(filament)
         session.commit()
         session.refresh(filament)
@@ -38,6 +45,7 @@ class FilamentService:
         update_data = data.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(filament, key, value)
+        filament.remaining_weight_g = max(0.0, filament.remaining_weight_g)
         session.add(filament)
         session.commit()
         session.refresh(filament)
@@ -46,6 +54,14 @@ class FilamentService:
     @staticmethod
     def delete_filament(session: Session, filament_id: int) -> None:
         filament = FilamentService.get_filament(session, filament_id)
+        assignments = session.exec(
+            select(PrinterSlotAssignment).where(
+                PrinterSlotAssignment.filament_id == filament_id
+            )
+        ).all()
+        for assignment in assignments:
+            assignment.filament_id = None
+            session.add(assignment)
         session.delete(filament)
         session.commit()
 
