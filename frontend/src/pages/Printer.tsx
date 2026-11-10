@@ -1,837 +1,289 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Activity, Thermometer, Clock,
-  Gauge, Box, RefreshCw, Plus, Edit2, Trash2, X
-} from 'lucide-react';
-import api from '@/lib/api';
-import type { Printer } from '@/types';
+import { RefreshCw, Plus } from 'lucide-react';
+import type { Printer, PrinterStatus } from '@/types';
 import { PrinterSkeleton } from '@/components/ui/Skeleton';
-import { usePrivacy } from '@/context/PrivacyContext';
 import { PrivacyWrapper } from '@/components/shared/PrivacyWrapper';
+import { usePrinter } from '@/hooks/use-printer';
+import { useFilaments } from '@/hooks/use-filaments';
+import type { Filament } from '@/types';
+import { queryKeys } from '@/lib/query-keys';
+import {
+  getPrinterStatusInfo,
+  isPrinterOffline,
+  type PrinterVisualState,
+} from '@/lib/printer-utils';
+import {
+  FleetPrinterCard,
+  PrinterDetailsHeader,
+  ThermalsPanel,
+  MechanicsPanel,
+  JobProgressPanel,
+} from '@/components/printer/PrinterCards';
+import { AmsSlotGrid } from '@/components/printer/AmsSlotGrid';
+import {
+  EmptyFleetView,
+  DisabledPrinterView,
+  OfflinePrinterView,
+  AwaitingTelemetryView,
+  PrinterConnectionModal,
+  type PrinterFormValues,
+} from '@/components/printer/PrinterStatusViews';
 
-interface TelemetryStatus {
-  last_updated?: number;
-  gcode_state?: string;
-  percent?: number;
-  nozzle_temper?: number;
-  nozzle_target_temper?: number;
-  bed_temper?: number;
-  bed_target_temper?: number;
-  chamber_temper?: number;
-  spd_lvl?: number;
-  spd_mag?: number;
-  nozzle_type?: string;
-  nozzle_diameter?: string;
-  remain_time?: number;
-  layer_num?: number;
-  total_layer_num?: number;
-  subtask_name?: string;
-  info?: { temp?: number };
-  ams?: { ams?: Array<{ humidity_raw?: number; humidity?: number; temp?: number }> };
-  online?: { ahb?: boolean; version?: number } | boolean;
-}
+const DEFAULT_PRINTER_FORM: PrinterFormValues = {
+  name: '',
+  ip_address: '',
+  serial_number: '',
+  access_code: '',
+  is_active: true,
+};
+
+const resolveActivePrinterId = (selectedId: number | null, printers: Printer[]): number | null => {
+  if (selectedId !== null) return selectedId;
+  if (printers.length === 0) return null;
+  return printers.find(p => p.is_active)?.id ?? printers[0].id;
+};
+
+const SelectedPrinterPanel = ({
+  selectedPrinter,
+  status,
+  activeState,
+  filaments,
+  now,
+  lastManualPoll,
+  isPolling,
+  onEdit,
+  onDelete,
+  onRecheck,
+  onForcePoll,
+  onAssignSlot,
+}: {
+  selectedPrinter: Printer;
+  status: PrinterStatus | null | undefined;
+  activeState: PrinterVisualState;
+  filaments: Filament[];
+  now: number;
+  lastManualPoll: Date | null;
+  isPolling: boolean;
+  onEdit: (p: Printer) => void;
+  onDelete: (id: number) => void;
+  onRecheck: () => void;
+  onForcePoll: () => void;
+  onAssignSlot: (slotIndex: number, filamentId: number | null) => void;
+}) => {
+  const hasValidData = Boolean(status && Object.keys(status).length > 0);
+  const offline = isPrinterOffline(status, now);
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <PrinterDetailsHeader printer={selectedPrinter} activeState={activeState} onEdit={onEdit} onDelete={onDelete} />
+      {!selectedPrinter.is_active ? (
+        <DisabledPrinterView onEnableClick={() => onEdit(selectedPrinter)} />
+      ) : offline ? (
+        <div className="space-y-6">
+          <OfflinePrinterView printer={selectedPrinter} status={status} now={now} onRecheck={onRecheck} />
+          <AmsSlotGrid status={status ?? {}} filaments={filaments} onAssignSlot={onAssignSlot} />
+        </div>
+      ) : !hasValidData || !status ? (
+        <div className="space-y-6">
+          <AwaitingTelemetryView />
+          <AmsSlotGrid status={status ?? {}} filaments={filaments} onAssignSlot={onAssignSlot} />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Live Telemetry</span>
+              {lastManualPoll && <span className="text-[10px] text-muted-foreground">Last force poll: {lastManualPoll.toLocaleTimeString()}</span>}
+            </div>
+            <Button size="sm" variant="ghost" onClick={onForcePoll} disabled={isPolling} className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-zinc-800 dark:hover:text-zinc-200">
+              <RefreshCw className={`w-3.5 h-3.5 ${isPolling ? 'animate-spin' : ''}`} /> Force Telemetry Request
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ThermalsPanel status={status} />
+            <MechanicsPanel status={status} />
+            <JobProgressPanel status={status} activeState={activeState} />
+            <AmsSlotGrid status={status} filaments={filaments} onAssignSlot={onAssignSlot} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PrinterFleetGrid = ({
+  printers,
+  allStatuses,
+  activePrinterId,
+  selectedPrinter,
+  activeState,
+  filaments,
+  now,
+  lastManualPoll,
+  isPolling,
+  onSelect,
+  onEdit,
+  onDelete,
+  onRecheck,
+  onForcePoll,
+  onAssignSlot,
+}: {
+  printers: Printer[];
+  allStatuses: Record<string, PrinterStatus>;
+  activePrinterId: number | null;
+  selectedPrinter: Printer | null;
+  activeState: PrinterVisualState | null;
+  filaments: Filament[];
+  now: number;
+  lastManualPoll: Date | null;
+  isPolling: boolean;
+  onSelect: (id: number) => void;
+  onEdit: (p: Printer) => void;
+  onDelete: (id: number) => void;
+  onRecheck: () => void;
+  onForcePoll: () => void;
+  onAssignSlot: (slotIndex: number, filamentId: number | null) => void;
+}) => (
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+    <div className="space-y-4 lg:col-span-1">
+      <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-1 mb-2">Active Fleet ({printers.length})</h2>
+      <div className="space-y-3">
+        {printers.map(printer => {
+          const pStatus = allStatuses[printer.id];
+          const state = getPrinterStatusInfo(printer, pStatus, now);
+          return <FleetPrinterCard key={printer.id} printer={printer} status={pStatus} state={state} isSelected={printer.id === activePrinterId} onSelect={onSelect} />;
+        })}
+      </div>
+    </div>
+    <div className="lg:col-span-2 space-y-6">
+      {selectedPrinter && activeState ? (
+        <SelectedPrinterPanel
+          selectedPrinter={selectedPrinter}
+          status={activePrinterId ? allStatuses[activePrinterId] : null}
+          activeState={activeState}
+          filaments={filaments}
+          now={now}
+          lastManualPoll={lastManualPoll}
+          isPolling={isPolling}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onRecheck={onRecheck}
+          onForcePoll={onForcePoll}
+          onAssignSlot={onAssignSlot}
+        />
+      ) : (
+        <div className="text-center py-12 text-muted-foreground">Select a printer from the left to view active telemetry logs.</div>
+      )}
+    </div>
+  </div>
+);
 
 const PrinterPage = () => {
   const queryClient = useQueryClient();
   const [selectedPrinterId, setSelectedPrinterId] = useState<number | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingPrinter, setEditingPrinter] = useState<Printer | null>(null);
   const [lastManualPoll, setLastManualPoll] = useState<Date | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
-  const { isMasked } = usePrivacy();
+  const { printers, isLoadingPrinters, allStatuses, createPrinterAsync, isCreatingPrinter, updatePrinterAsync, isUpdatingPrinter, deletePrinterAsync, assignSlot, poll, isPolling } = usePrinter(selectedPrinterId);
+  const { filaments } = useFilaments();
 
-  // Form State
-  const [formData, setFormData] = useState({
-    name: '',
-    ip_address: '',
-    serial_number: '',
-    access_code: '',
-    is_active: true
-  });
-
-  const [editFormData, setEditFormData] = useState({
-    id: 0,
-    name: '',
-    ip_address: '',
-    serial_number: '',
-    access_code: '',
-    is_active: true
-  });
-
-  // Query all printers
-  const { data: printers, isLoading: isLoadingPrinters } = useQuery<Printer[]>({
-    queryKey: ['printers'],
-    queryFn: () => api.get('/api/printer').then(res => res.data)
-  });
-
-  // Compute active/selected printer ID dynamically to avoid setState in effect
-  const activePrinterId = selectedPrinterId ?? (printers && printers.length > 0
-    ? (printers.find(p => p.is_active)?.id ?? printers[0].id)
-    : null);
-
-  // Update clock for offline timer calculation
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 10000);
     return () => clearInterval(interval);
   }, []);
 
-  const selectedPrinter = printers?.find(p => p.id === activePrinterId);
+  const activePrinterId = resolveActivePrinterId(selectedPrinterId, printers);
+  const selectedPrinter = printers.find(p => p.id === activePrinterId) ?? null;
+  const status = activePrinterId ? allStatuses[activePrinterId] : null;
+  const activeState = selectedPrinter ? getPrinterStatusInfo(selectedPrinter, status, now) : null;
 
-  // Query status for all printers to display labels in the list
-  const { data: allStatuses, isError } = useQuery<Record<number, TelemetryStatus>>({
-    queryKey: ['all-printer-statuses'],
-    queryFn: () => api.get('/api/printer/status/all').then(res => res.data),
-    refetchInterval: 5000 // Poll every 5s for all printers
-  });
+  const handleAddSubmit = async (values: PrinterFormValues) => {
+    const created = await createPrinterAsync(values);
+    setIsAddModalOpen(false);
+    setSelectedPrinterId(created.id);
+  };
 
-  const status = allStatuses && activePrinterId ? allStatuses[activePrinterId] : null;
+  const handleEditSubmit = async (values: PrinterFormValues) => {
+    if (!editingPrinter) return;
+    await updatePrinterAsync({ id: editingPrinter.id, data: values });
+    setEditingPrinter(null);
+  };
 
-  // Mutations
-  const addPrinterMutation = useMutation({
-    mutationFn: (newPrinter: Omit<Printer, 'id'>) => api.post('/api/printer', newPrinter),
-    onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['printers'] });
-      queryClient.invalidateQueries({ queryKey: ['all-printer-statuses'] });
-      setIsAddModalOpen(false);
-      setFormData({ name: '', ip_address: '', serial_number: '', access_code: '', is_active: true });
-      setSelectedPrinterId(res.data.id);
-    }
-  });
-
-  const updatePrinterMutation = useMutation({
-    mutationFn: (updated: Printer) => api.put(`/api/printer/${updated.id}`, updated),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['printers'] });
-      queryClient.invalidateQueries({ queryKey: ['all-printer-statuses'] });
-      setIsEditModalOpen(false);
-    }
-  });
-
-  const deletePrinterMutation = useMutation({
-    mutationFn: (printerId: number) => api.delete(`/api/printer/${printerId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['printers'] });
-      queryClient.invalidateQueries({ queryKey: ['all-printer-statuses'] });
+  const handleDelete = async (printerId: number) => {
+    if (window.confirm('Are you sure you want to delete this printer? All telemetry logs and configuration will be removed.')) {
+      await deletePrinterAsync(printerId);
       setSelectedPrinterId(null);
     }
-  });
-
-  const pollMutation = useMutation({
-    mutationFn: () => {
-      if (!activePrinterId) return Promise.resolve(null);
-      return api.post(`/api/printer/${activePrinterId}/poll`);
-    },
-    onSuccess: () => {
-      setLastManualPoll(new Date());
-      queryClient.invalidateQueries({ queryKey: ['all-printer-statuses'] });
-    }
-  });
-
-  const handleAddSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || !formData.ip_address || !formData.serial_number || !formData.access_code) {
-      alert('Please fill out all fields.');
-      return;
-    }
-    addPrinterMutation.mutate(formData);
   };
-
-  const handleEditSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editFormData.name || !editFormData.ip_address || !editFormData.serial_number || !editFormData.access_code) {
-      alert('Please fill out all fields.');
-      return;
-    }
-    updatePrinterMutation.mutate(editFormData);
-  };
-
-  const openEditModal = (printer: Printer) => {
-    setEditFormData(printer);
-    setIsEditModalOpen(true);
-  };
-
-  const handleDelete = (printerId: number) => {
-    if (confirm('Are you sure you want to delete this printer? All telemetry logs and configuration will be removed.')) {
-      deletePrinterMutation.mutate(printerId);
-    }
-  };
-
-  // Status helper variables
-  const amsUnit = status?.ams?.ams?.[0] || {};
-  const isOffline = status?.last_updated ? (now - status.last_updated * 1000 > 300000) : false;
-  const hasValidData = !isError && status && Object.keys(status).length > 0;
-
-  // Helpers to get state strings and indicators
-  const getPrinterStatusInfo = (p: Printer, statusData: TelemetryStatus | null | undefined, timeNow: number) => {
-    if (!p.is_active) {
-      return {
-        label: 'Offline',
-        color: 'bg-zinc-500',
-        text: 'text-zinc-400',
-        border: 'border-zinc-800',
-        glow: 'shadow-[0_0_15px_rgba(113,113,122,0.15)]',
-        badge: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
-        bg: 'linear-gradient(135deg, #18181b 0%, #09090b 80%, #000000 100%)',
-        borderColorHex: 'rgba(113, 113, 122, 0.2)',
-        hoverBorderColorHex: 'rgba(113, 113, 122, 0.5)'
-      };
-    }
-
-    // Calculate telemetry age
-    const lastUpdated = statusData?.last_updated;
-    const lastValidTime = statusData && Object.keys(statusData).length > 0 && lastUpdated ? lastUpdated * 1000 : null;
-    const idleDuration = lastValidTime ? (timeNow - lastValidTime) : null;
-    const isOfflineState = (idleDuration !== null && idleDuration > 300000) ||
-      statusData?.gcode_state === 'OFFLINE' ||
-      (statusData?.online === false || (typeof statusData?.online === 'object' && statusData?.online !== null && statusData?.online.ahb === false));
-
-    if (isOfflineState || !statusData || Object.keys(statusData).length === 0) {
-      return {
-        label: 'Offline',
-        color: 'bg-zinc-500',
-        text: 'text-zinc-400',
-        border: 'border-zinc-800',
-        glow: 'shadow-[0_0_15px_rgba(113,113,122,0.15)]',
-        badge: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
-        bg: 'linear-gradient(135deg, #18181b 0%, #09090b 80%, #000000 100%)',
-        borderColorHex: 'rgba(113, 113, 122, 0.2)',
-        hoverBorderColorHex: 'rgba(113, 113, 122, 0.5)'
-      };
-    }
-
-    const gcodeState = statusData?.gcode_state || 'IDLE';
-
-    if (gcodeState === 'RUNNING' || gcodeState === 'PREPARE' || gcodeState === 'FINISHING') {
-      return {
-        label: 'Working',
-        color: 'bg-blue-500 animate-pulse',
-        text: 'text-blue-400',
-        border: 'border-blue-500/30',
-        glow: 'shadow-[0_0_15px_rgba(59,130,246,0.15)]',
-        badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-        bg: 'linear-gradient(135deg, #0f172a 0%, #09090b 80%, #000000 100%)',
-        borderColorHex: 'rgba(59, 130, 246, 0.3)',
-        hoverBorderColorHex: 'rgba(59, 130, 246, 0.8)'
-      };
-    }
-
-    if (gcodeState === 'PAUSE' || gcodeState === 'FAILED') {
-      return {
-        label: 'Stopped',
-        color: 'bg-red-500 animate-pulse',
-        text: 'text-red-400',
-        border: 'border-red-500/30',
-        glow: 'shadow-[0_0_15px_rgba(239,68,68,0.15)]',
-        badge: 'bg-red-500/10 text-red-400 border-red-500/20',
-        bg: 'linear-gradient(135deg, #450a0a 0%, #09090b 80%, #000000 100%)',
-        borderColorHex: 'rgba(239, 68, 68, 0.3)',
-        hoverBorderColorHex: 'rgba(239, 68, 68, 0.8)'
-      };
-    }
-
-    if (gcodeState === 'IDLE' || gcodeState === 'FINISH') {
-      return {
-        label: 'Idle',
-        color: 'bg-yellow-500',
-        text: 'text-yellow-400',
-        border: 'border-yellow-500/30',
-        glow: 'shadow-[0_0_15px_rgba(234,179,8,0.15)]',
-        badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-        bg: 'linear-gradient(135deg, #422006 0%, #09090b 80%, #000000 100%)',
-        borderColorHex: 'rgba(234, 179, 8, 0.3)',
-        hoverBorderColorHex: 'rgba(234, 179, 8, 0.8)'
-      };
-    }
-
-    // Fallback to Online
-    return {
-      label: 'Online',
-      color: 'bg-emerald-500',
-      text: 'text-emerald-400',
-      border: 'border-emerald-500/30',
-      glow: 'shadow-[0_0_15px_rgba(16,185,129,0.15)]',
-      badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-      bg: 'linear-gradient(135deg, #064e3b 0%, #09090b 80%, #000000 100%)',
-      borderColorHex: 'rgba(16, 185, 129, 0.3)',
-      hoverBorderColorHex: 'rgba(16, 185, 129, 0.8)'
-    };
-  };
-
-  const getSpeedLabel = (lvl?: number) => {
-    switch (lvl) {
-      case 1: return "Silent";
-      case 2: return "Standard";
-      case 3: return "Sport";
-      case 4: return "Ludicrous";
-      default: return "Standard";
-    }
-  };
-
-  const activeState = selectedPrinter ? getPrinterStatusInfo(selectedPrinter, status, now) : null;
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-50 dark:to-zinc-400 bg-clip-text text-transparent">
-            <PrivacyWrapper keyName="maskPrinterTitle" placeholder="•••••" inline>
-              Printers Manager
-            </PrivacyWrapper>
+            <PrivacyWrapper keyName="maskPrinterTitle" placeholder="•••••" inline>Printers Manager</PrivacyWrapper>
           </h1>
           <p className="text-muted-foreground">Monitor and manage your Bambu Lab 3D printer fleet.</p>
         </div>
-        <div className="flex items-center gap-2 self-start md:self-center">
-          <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-all">
-            <Plus className="w-4 h-4" />
-            Add Printer
-          </Button>
-        </div>
+        <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-all">
+          <Plus className="w-4 h-4" /> Add Printer
+        </Button>
       </div>
-
       {isLoadingPrinters ? (
         <PrinterSkeleton />
-      ) : !printers || printers.length === 0 ? (
-        /* Empty State */
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-zinc-50/30 dark:bg-zinc-950/10">
-          <Activity className="w-16 h-16 text-zinc-300 dark:text-zinc-800 mb-6" />
-          <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-200 mb-2">No printer added</h2>
-          <p className="text-muted-foreground max-w-sm mb-8">
-            You don't have any printers configured yet. Add your Bambu Lab printer to start receiving real-time MQTT telemetry.
-          </p>
-          <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 shadow-md">
-            <Plus className="w-4 h-4" />
-            Add Your First Printer
-          </Button>
-        </div>
+      ) : printers.length === 0 ? (
+        <EmptyFleetView onAddClick={() => setIsAddModalOpen(true)} />
       ) : (
-        /* Printer Fleet View Split Grid */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          
-          {/* Left Column: Printers List Grid */}
-          <div className="space-y-4 lg:col-span-1">
-            <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground px-1 mb-2">Active Fleet ({printers.length})</h2>
-            <div className="space-y-3">
-              {printers.map((printer) => {
-                const pStatus = allStatuses?.[printer.id];
-                const state = getPrinterStatusInfo(printer, pStatus, now);
-                const isSelected = printer.id === activePrinterId;
-                return (
-                  <Card
-                    key={printer.id}
-                    className={`cursor-pointer transition-all duration-300 border text-white hover:-translate-y-0.5 hover:shadow-md ${
-                      isSelected
-                        ? 'shadow-sm ring-1 ring-white/10'
-                        : ''
-                    } ${state.glow}`}
-                    style={{
-                      background: state.bg,
-                      borderColor: isSelected ? state.hoverBorderColorHex : state.borderColorHex,
-                    }}
-                    onClick={() => setSelectedPrinterId(printer.id)}
-                  >
-                    <CardContent className="p-4 flex items-center justify-between">
-                      <div className="space-y-1">
-                        <div className="font-semibold text-white flex items-center gap-2">
-                          <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••••" inline>
-                            {printer.name}
-                          </PrivacyWrapper>
-                          {!printer.is_active && (
-                            <span className="text-[10px] bg-white/10 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700">Disabled</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-zinc-400 font-mono">
-                          <PrivacyWrapper keyName="maskPrinterIp" placeholder="•••.•••.•••.•••" inline>
-                            {printer.ip_address}
-                          </PrivacyWrapper>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <div className={`text-xs font-bold ${state.text}`}>{state.label}</div>
-                          {pStatus && pStatus.gcode_state === 'RUNNING' && (
-                            <div className="text-[10px] text-zinc-400">
-                              <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="••%" inline>
-                                {pStatus.percent || 0}% Complete
-                              </PrivacyWrapper>
-                            </div>
-                          )}
-                        </div>
-                        <div className={`h-2.5 w-2.5 rounded-full ${state.color}`} />
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Right Column: Selected Printer Details & Settings */}
-          <div className="lg:col-span-2 space-y-6">
-            {selectedPrinter && activeState ? (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                {/* Details Header Card */}
-                <Card 
-                  className={`border text-white shadow-lg relative overflow-hidden ${activeState.glow}`}
-                  style={{
-                    background: activeState.bg,
-                    borderColor: activeState.borderColorHex
-                  }}
-                >
-                  <CardContent className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h2 className="text-2xl font-bold text-white">
-                          <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••••" inline>
-                            {selectedPrinter.name}
-                          </PrivacyWrapper>
-                        </h2>
-                        <div className={`h-2.5 w-2.5 rounded-full ${activeState.color}`} />
-                      </div>
-                      <p className="text-xs text-zinc-400 font-mono mt-1">
-                        Serial:{' '}
-                        <PrivacyWrapper keyName="maskPrinterSerial" placeholder="••••••••••••" inline>
-                          {selectedPrinter.serial_number}
-                        </PrivacyWrapper>
-                        {' '}| Host:{' '}
-                        <PrivacyWrapper keyName="maskPrinterIp" placeholder="•••.•••.•••.•••" inline>
-                          {selectedPrinter.ip_address}
-                        </PrivacyWrapper>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 self-start md:self-center">
-                      <Button variant="outline" size="sm" onClick={() => openEditModal(selectedPrinter)} className="gap-1 border-white/20 text-white hover:bg-white/10 hover:text-white">
-                        <Edit2 className="w-3.5 h-3.5" />
-                        Edit Connection
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(selectedPrinter.id)} className="gap-1 bg-red-600 hover:bg-red-500 text-white border-transparent">
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Delete
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Telemetry Details */}
-                {!selectedPrinter.is_active ? (
-                  <Card className="border border-dashed border-zinc-800 p-8 text-center bg-zinc-950/80 text-white">
-                    <Activity className="w-12 h-12 text-zinc-600 opacity-50 mx-auto mb-4" />
-                    <h3 className="font-semibold text-lg text-zinc-300">Telemetry Stream Off</h3>
-                    <p className="text-xs text-zinc-400 max-w-sm mx-auto mt-1 mb-4">
-                      This printer is currently disabled. Toggle connection on in the settings dialog to resume live MQTT telemetry monitoring.
-                    </p>
-                    <Button size="sm" variant="outline" onClick={() => openEditModal(selectedPrinter)} className="border-zinc-700 hover:bg-zinc-900 text-white">
-                      Enable Printer Connection
-                    </Button>
-                  </Card>
-                ) : isOffline ? (
-                  <Card className="border border-red-900 p-8 text-center bg-zinc-950/80 text-white shadow-[0_0_15px_rgba(239,68,68,0.05)]">
-                    <Activity className="w-12 h-12 text-red-500 opacity-60 mx-auto mb-4 animate-pulse" />
-                    <h3 className="font-semibold text-lg text-red-400">Printer Offline</h3>
-                    <p className="text-xs text-zinc-400 max-w-md mx-auto mt-1 mb-6">
-                      No telemetry packets have been received from IP{' '}
-                      <PrivacyWrapper keyName="maskPrinterIp" placeholder="•••.•••.•••.•••" inline>
-                        {selectedPrinter.ip_address}
-                      </PrivacyWrapper>{' '}
-                      in the last {status?.last_updated ? Math.floor((now - status.last_updated * 1000) / 60000) : 'several'} minutes. Check if the printer is powered on and connected to the same local network.
-                    </p>
-                    <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['all-printer-statuses'] })} className="border-zinc-700 hover:bg-zinc-900 text-white">
-                      Recheck Connection
-                    </Button>
-                  </Card>
-                ) : !hasValidData ? (
-                  <Card className="p-8 text-center border border-zinc-800 bg-zinc-950/80 text-white">
-                    <Activity className="w-10 h-10 text-indigo-400 animate-spin mx-auto mb-4" />
-                    <h3 className="font-medium text-zinc-300">Awaiting Telemetry...</h3>
-                    <p className="text-xs text-zinc-400 max-w-xs mx-auto mt-1">
-                      Subscribing to MQTT topic and syncing printer logs. This may take up to a minute.
-                    </p>
-                  </Card>
-                ) : (
-                  /* Live Telemetry View */
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Live Telemetry</span>
-                        {lastManualPoll && (
-                          <span className="text-[10px] text-muted-foreground">
-                            Last force poll: {lastManualPoll.toLocaleTimeString()}
-                          </span>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => pollMutation.mutate()}
-                        disabled={pollMutation.isPending}
-                        className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-zinc-800 dark:hover:text-zinc-200"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${pollMutation.isPending ? 'animate-spin' : ''}`} />
-                        Force Telemetry Request
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Thermals Panel */}
-                      <Card className="border border-zinc-800 bg-zinc-950/80 text-white">
-                        <CardHeader className="pb-3 border-b border-zinc-800/60">
-                          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-white">
-                            <Thermometer className="w-4 h-4 text-orange-400" />
-                            Temperatures
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-4 space-y-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-zinc-400">Extruder Nozzle</span>
-                            <div className="text-right">
-                              <span className="text-lg font-bold text-white">
-                                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="••" inline>
-                                  {Math.round(status.nozzle_temper || 0)}
-                                </PrivacyWrapper>
-                                °C
-                              </span>
-                              <div className="text-[10px] text-zinc-500">
-                                Target:{' '}
-                                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="••" inline>
-                                  {status.nozzle_target_temper || 0}
-                                </PrivacyWrapper>
-                                °C
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-zinc-400">Heated Bed</span>
-                            <div className="text-right">
-                              <span className="text-lg font-bold text-white">
-                                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="••" inline>
-                                  {Math.round(status.bed_temper || 0)}
-                                </PrivacyWrapper>
-                                °C
-                              </span>
-                              <div className="text-[10px] text-zinc-500">
-                                Target:{' '}
-                                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="••" inline>
-                                  {status.bed_target_temper || 0}
-                                </PrivacyWrapper>
-                                °C
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex justify-between items-center pt-2 border-t border-zinc-800">
-                            <span className="text-sm text-zinc-400">Chamber Ambient</span>
-                            <span className="text-lg font-bold text-orange-400">
-                              <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="••" inline>
-                                {status.info?.temp || status.chamber_temper || 0}
-                              </PrivacyWrapper>
-                              °C
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Performance Panel */}
-                      <Card className="border border-zinc-800 bg-zinc-950/80 text-white">
-                        <CardHeader className="pb-3 border-b border-zinc-800/60">
-                          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-white">
-                            <Gauge className="w-4 h-4 text-emerald-400" />
-                            Mechanics
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-4 space-y-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-zinc-400">Speed Profile</span>
-                            <div className="text-right">
-                              <span className="text-lg font-bold text-white">
-                                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••••" inline>
-                                  {getSpeedLabel(status.spd_lvl)}
-                                </PrivacyWrapper>
-                              </span>
-                              <div className="text-[10px] text-zinc-500">
-                                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••" inline>
-                                  {status.spd_mag || 100}
-                                </PrivacyWrapper>
-                                % speed scale
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-zinc-400">Hardware Nozzle</span>
-                            <div className="text-right">
-                              <span className="text-md font-bold text-white truncate">{status.nozzle_type || 'Stainless'}</span>
-                              <div className="text-[10px] text-zinc-500">{status.nozzle_diameter || '0.4'}mm diameter</div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Print Telemetry Panel */}
-                      <Card className="md:col-span-2 border border-zinc-800 bg-zinc-950/80 text-white">
-                        <CardHeader className="pb-3 border-b border-zinc-800/60">
-                          <CardTitle className="text-sm font-semibold flex items-center justify-between text-white">
-                            <span className="flex items-center gap-2">
-                              <Clock className="w-4 h-4 text-blue-400" />
-                              Job Progress
-                            </span>
-                            {status.gcode_state === 'RUNNING' && (
-                              <span className="flex items-center gap-1.5 text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full font-bold">
-                                <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-                                PRINTING
-                              </span>
-                            )}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-4 space-y-4">
-                          <div className="grid grid-cols-3 gap-4 text-center">
-                            <div className="space-y-1">
-                              <div className="text-xs text-zinc-500">State</div>
-                              <div className={`text-md font-bold uppercase ${activeState.text}`}>
-                                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••••" inline>
-                                  {status.gcode_state || 'IDLE'}
-                                </PrivacyWrapper>
-                              </div>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="text-xs text-zinc-500">Completed</div>
-                              <div className="text-md font-bold text-white">
-                                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••" inline>
-                                  {status.percent || 0}%
-                                </PrivacyWrapper>
-                              </div>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="text-xs text-zinc-500">Remaining</div>
-                              <div className="text-md font-bold text-white">
-                                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••" inline>
-                                  {status.remain_time || 0}m
-                                </PrivacyWrapper>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2 pt-2">
-                            <div className="h-3 w-full rounded-full bg-zinc-800 overflow-hidden">
-                              <div
-                                  className="h-full bg-indigo-500 transition-all duration-1000 ease-in-out"
-                                  style={{ width: isMasked('maskPrinterTelemetryName') ? '0%' : `${status.percent || 0}%` }}
-                              />
-                            </div>
-                            <div className="flex justify-between text-xs text-zinc-500">
-                              <span>
-                                Layer{' '}
-                                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••" inline>
-                                  {status.layer_num || 0}
-                                </PrivacyWrapper>
-                              </span>
-                              <span>
-                                Total Layers:{' '}
-                                <PrivacyWrapper keyName="maskPrinterTelemetryName" placeholder="•••" inline>
-                                  {status.total_layer_num || 0}
-                                </PrivacyWrapper>
-                              </span>
-                            </div>
-                          </div>
-
-                          {status.subtask_name && (
-                            <div className="pt-3 border-t border-zinc-800 text-xs font-mono text-zinc-500 break-all">
-                              Task:{' '}
-                              <PrivacyWrapper keyName="maskPrinterSubtaskName" placeholder="••••••••••••" inline>
-                                {status.subtask_name}
-                              </PrivacyWrapper>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* AMS Unit Panel */}
-                      {amsUnit && Object.keys(amsUnit).length > 0 && (
-                        <Card className="md:col-span-2 border border-zinc-800 bg-zinc-950/80 text-white">
-                          <CardHeader className="pb-3 border-b border-zinc-800/60">
-                            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-white">
-                              <Box className="w-4 h-4 text-indigo-400" />
-                              Automatic Material System (AMS)
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="pt-4 grid grid-cols-2 gap-4">
-                            <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-xl">
-                              <div className="text-xs text-zinc-500">AMS Humidity</div>
-                              <div className="text-xl font-bold text-indigo-400 mt-1">
-                                {amsUnit.humidity_raw || 0}%
-                              </div>
-                              <span className="text-[10px] text-zinc-500">Sensor Raw: {amsUnit.humidity || 0}</span>
-                            </div>
-                            <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-xl">
-                              <div className="text-xs text-zinc-500">AMS Temperature</div>
-                              <div className="text-xl font-bold text-indigo-400 mt-1">
-                                {amsUnit.temp || 0}°C
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                Select a printer from the left to view active telemetry logs.
-              </div>
-            )}
-          </div>
-        </div>
+        <PrinterFleetGrid
+          printers={printers}
+          allStatuses={allStatuses}
+          activePrinterId={activePrinterId}
+          selectedPrinter={selectedPrinter}
+          activeState={activeState}
+          filaments={filaments}
+          now={now}
+          lastManualPoll={lastManualPoll}
+          isPolling={isPolling}
+          onSelect={setSelectedPrinterId}
+          onEdit={setEditingPrinter}
+          onDelete={handleDelete}
+          onRecheck={() => queryClient.invalidateQueries({ queryKey: queryKeys.printerStatuses })}
+          onForcePoll={() => {
+            if (!activePrinterId) return;
+            poll(activePrinterId, { onSuccess: () => setLastManualPoll(new Date()) });
+          }}
+          onAssignSlot={(slotIndex, filamentId) => {
+            if (!activePrinterId) return;
+            assignSlot({ printerId: activePrinterId, slotIndex, filamentId });
+          }}
+        />
       )}
-
-      {/* Add Printer Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <Card className="w-full max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200">
-            <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-900">
-              <CardTitle className="text-xl font-bold">Add 3D Printer</CardTitle>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsAddModalOpen(false)}>
-                <X className="w-4 h-4" />
-              </Button>
-            </CardHeader>
-            <form onSubmit={handleAddSubmit}>
-              <CardContent className="pt-6 space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="name">Friendly Name</Label>
-                  <Input
-                    id="name"
-                    placeholder="e.g. Lab X1C"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ip_address">Local IP Address</Label>
-                  <Input
-                    id="ip_address"
-                    type={isMasked('maskPrinterIp') ? "password" : "text"}
-                    placeholder="e.g. 192.168.1.150"
-                    value={formData.ip_address}
-                    onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="serial_number">Bambu Serial Number</Label>
-                  <Input
-                    id="serial_number"
-                    type={isMasked('maskPrinterSerial') ? "password" : "text"}
-                    placeholder="e.g. 01P00A123456789"
-                    value={formData.serial_number}
-                    onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="access_code">LAN Access Code</Label>
-                  <Input
-                    id="access_code"
-                    type={isMasked('maskPrinterAccessCode') ? "password" : "text"}
-                    placeholder="8-character alphanumeric code"
-                    value={formData.access_code}
-                    onChange={(e) => setFormData({ ...formData, access_code: e.target.value })}
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-2">
-                  <input
-                    id="is_active"
-                    type="checkbox"
-                    checked={formData.is_active}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <Label htmlFor="is_active" className="cursor-pointer">Enable immediately upon adding</Label>
-                </div>
-              </CardContent>
-              <div className="p-6 pt-0 flex gap-3 border-t border-zinc-100 dark:border-zinc-900 mt-6 justify-end">
-                <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={addPrinterMutation.isPending} className="bg-indigo-600 hover:bg-indigo-500 text-white">
-                  {addPrinterMutation.isPending ? 'Registering...' : 'Register Printer'}
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
-
-      {/* Edit Printer Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <Card className="w-full max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200">
-            <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-900">
-              <CardTitle className="text-xl font-bold">Edit Printer Connection</CardTitle>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsEditModalOpen(false)}>
-                <X className="w-4 h-4" />
-              </Button>
-            </CardHeader>
-            <form onSubmit={handleEditSubmit}>
-              <CardContent className="pt-6 space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-name">Friendly Name</Label>
-                  <Input
-                    id="edit-name"
-                    placeholder="e.g. Lab X1C"
-                    value={editFormData.name}
-                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-ip_address">Local IP Address</Label>
-                  <Input
-                    id="edit-ip_address"
-                    type={isMasked('maskPrinterIp') ? "password" : "text"}
-                    placeholder="e.g. 192.168.1.150"
-                    value={editFormData.ip_address}
-                    onChange={(e) => setEditFormData({ ...editFormData, ip_address: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-serial_number">Bambu Serial Number</Label>
-                  <Input
-                    id="edit-serial_number"
-                    type={isMasked('maskPrinterSerial') ? "password" : "text"}
-                    placeholder="e.g. 01P00A123456789"
-                    value={editFormData.serial_number}
-                    onChange={(e) => setEditFormData({ ...editFormData, serial_number: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-access_code">LAN Access Code</Label>
-                  <Input
-                    id="edit-access_code"
-                    type={isMasked('maskPrinterAccessCode') ? "password" : "text"}
-                    placeholder="8-character alphanumeric code"
-                    value={editFormData.access_code}
-                    onChange={(e) => setEditFormData({ ...editFormData, access_code: e.target.value })}
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-2">
-                  <input
-                    id="edit-is_active"
-                    type="checkbox"
-                    checked={editFormData.is_active}
-                    onChange={(e) => setEditFormData({ ...editFormData, is_active: e.target.checked })}
-                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <Label htmlFor="edit-is_active" className="cursor-pointer">Active connection stream</Label>
-                </div>
-              </CardContent>
-              <div className="p-6 pt-0 flex gap-3 border-t border-zinc-100 dark:border-zinc-900 mt-6 justify-end">
-                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={updatePrinterMutation.isPending} className="bg-indigo-600 hover:bg-indigo-500 text-white">
-                  {updatePrinterMutation.isPending ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
+      <PrinterConnectionModal
+        key={isAddModalOpen ? 'add-open' : 'add-closed'}
+        isOpen={isAddModalOpen}
+        title="Add 3D Printer"
+        submitLabel="Register Printer"
+        pendingLabel="Registering..."
+        initialValues={DEFAULT_PRINTER_FORM}
+        isPending={isCreatingPrinter}
+        onClose={() => setIsAddModalOpen(false)}
+        onSubmit={handleAddSubmit}
+      />
+      <PrinterConnectionModal
+        key={editingPrinter?.id ?? 'edit-closed'}
+        isOpen={Boolean(editingPrinter)}
+        title="Edit Printer Connection"
+        submitLabel="Save Changes"
+        pendingLabel="Saving..."
+        initialValues={editingPrinter ?? DEFAULT_PRINTER_FORM}
+        isPending={isUpdatingPrinter}
+        onClose={() => setEditingPrinter(null)}
+        onSubmit={handleEditSubmit}
+      />
     </div>
   );
 };

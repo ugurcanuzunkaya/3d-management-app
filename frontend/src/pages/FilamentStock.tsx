@@ -1,243 +1,227 @@
 import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Plus, Settings2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import api from '@/lib/api';
-import type { Filament, FilamentType, FilamentColor, StockSettings } from '@/types';
-
+import type { Filament, PrinterStatus } from '@/types';
+import { useFilaments, useFilamentTypes, useColors } from '@/hooks/use-filaments';
+import { useStockSettings } from '@/hooks/use-settings';
+import { usePrinter } from '@/hooks/use-printer';
 import StockSummary from '@/components/stock/StockSummary';
 import FilamentSearchBar from '@/components/stock/FilamentSearchBar';
 import FilamentCard from '@/components/stock/FilamentCard';
 import FilamentFormModal from '@/components/stock/FilamentFormModal';
 import DeleteConfirmModal from '@/components/stock/DeleteConfirmModal';
+import { PaginationControl } from '@/components/stock/PaginationControl';
 import { StockSkeleton } from '@/components/ui/Skeleton';
 import { PrivacyWrapper } from '@/components/shared/PrivacyWrapper';
 
+const matchesFilamentFilters = (
+  f: Filament,
+  search: string,
+  typeFilter: string,
+  colorFilter: string,
+  statusFilter: string
+) => {
+  const q = search.toLowerCase();
+  const matchesSearch =
+    f.name.toLowerCase().includes(q) || Boolean(f.brand && f.brand.toLowerCase().includes(q));
+  const matchesType = typeFilter === 'all' || f.type_id?.toString() === typeFilter;
+  const matchesColor = colorFilter === 'all' || f.color_id?.toString() === colorFilter;
+  const matchesStatus =
+    statusFilter === 'all' ||
+    (statusFilter === 'sealed' && !f.is_opened) ||
+    (statusFilter === 'opened' && f.is_opened);
+  return matchesSearch && matchesType && matchesColor && matchesStatus;
+};
+
+const buildSlotByFilamentMap = (allStatuses: Record<string, PrinterStatus>): Record<number, string> => {
+  const map: Record<number, string> = {};
+  for (const status of Object.values(allStatuses)) {
+    for (const s of status.slots ?? []) {
+      if (s.filament_id) {
+        map[s.filament_id] = s.slot_index === 254 ? 'On External Holder' : `In AMS A${s.slot_index + 1}`;
+      }
+    }
+  }
+  return map;
+};
+
+const StockHeader = ({ onAddClick }: { onAddClick: () => void }) => (
+  <div className="flex justify-between items-center">
+    <div>
+      <h1 className="text-3xl font-bold tracking-tight">
+        <PrivacyWrapper keyName="maskStockTitle" placeholder="•••••" inline>Filament Stock</PrivacyWrapper>
+      </h1>
+      <p className="text-muted-foreground">Manage your filament inventory and track usage.</p>
+    </div>
+    <div className="flex gap-2">
+      <Link to="/stock/settings">
+        <Button variant="outline" size="icon"><Settings2 className="h-4 w-4" /></Button>
+      </Link>
+      <Button onClick={onAddClick}><Plus className="h-4 w-4 mr-2" /> Add Filament</Button>
+    </div>
+  </div>
+);
+
+const FilamentGridSection = ({
+  paginatedFilaments,
+  totalFiltered,
+  currentPage,
+  totalPages,
+  pageSize,
+  slotByFilamentId,
+  onEdit,
+  onDelete,
+  onQuickAdjust,
+  onPageChange,
+  onPageSizeChange,
+  onClearFilters,
+}: {
+  paginatedFilaments: Filament[];
+  totalFiltered: number;
+  currentPage: number;
+  totalPages: number;
+  pageSize: number | 'all';
+  slotByFilamentId: Record<number, string>;
+  onEdit: (f: Filament) => void;
+  onDelete: (f: Filament) => void;
+  onQuickAdjust: (f: Filament, delta: number) => void;
+  onPageChange: (p: number | ((prev: number) => number)) => void;
+  onPageSizeChange: (s: number | 'all') => void;
+  onClearFilters: () => void;
+}) => (
+  <>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {paginatedFilaments.map(filament => (
+        <FilamentCard
+          key={filament.id}
+          filament={filament}
+          mountedSlotLabel={slotByFilamentId[filament.id] ?? null}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onQuickAdjust={onQuickAdjust}
+        />
+      ))}
+    </div>
+    {totalFiltered > 0 ? (
+      <PaginationControl
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        totalFiltered={totalFiltered}
+        shownCount={paginatedFilaments.length}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+    ) : (
+      <div className="text-center py-20 border-2 border-dashed rounded-xl">
+        <p className="text-muted-foreground">No filaments found matching your filters.</p>
+        <Button variant="link" onClick={onClearFilters}>Clear all filters</Button>
+      </div>
+    )}
+  </>
+);
+
 const FilamentStock = () => {
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [colorFilter, setColorFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-
-  const handleSearch = (s: string) => { setSearch(s); setCurrentPage(1); };
-  const handleType = (t: string) => { setTypeFilter(t); setCurrentPage(1); };
-  const handleColor = (c: string) => { setColorFilter(c); setCurrentPage(1); };
-  const handleStatus = (s: string) => { setStatusFilter(s); setCurrentPage(1); };
-  const handlePageSize = (s: number | 'all') => { setPageSize(s); setCurrentPage(1); };
-
-  // Modals state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number | 'all'>(20);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingFilament, setEditingFilament] = useState<Filament | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deletingFilament, setDeletingFilament] = useState<Filament | null>(null);
 
-  const { data: filaments, isLoading } = useQuery<Filament[]>({
-    queryKey: ['filaments'],
-    queryFn: () => api.get('/api/filaments').then(res => res.data)
-  });
+  const { filaments, isLoading, createFilamentAsync, updateFilamentAsync, deleteFilamentAsync, isUpserting, isDeleting } = useFilaments();
+  const { types } = useFilamentTypes();
+  const { colors } = useColors();
+  const { stockSettings } = useStockSettings();
+  const { allStatuses } = usePrinter();
 
-  const { data: types } = useQuery<FilamentType[]>({
-    queryKey: ['filament-types'],
-    queryFn: () => api.get('/api/filaments/types').then(res => res.data)
-  });
+  const slotByFilamentId = useMemo(() => buildSlotByFilamentMap(allStatuses), [allStatuses]);
+  const filteredFilaments = useMemo(
+    () => filaments.filter(f => matchesFilamentFilters(f, search, typeFilter, colorFilter, statusFilter)).sort((a, b) => a.name.localeCompare(b.name)),
+    [filaments, search, typeFilter, colorFilter, statusFilter]
+  );
 
-  const { data: colors } = useQuery<FilamentColor[]>({
-    queryKey: ['filament-colors'],
-    queryFn: () => api.get('/api/filaments/colors').then(res => res.data)
-  });
-
-  const { data: stockSettings } = useQuery<StockSettings>({
-    queryKey: ['stock-settings'],
-    queryFn: () => api.get('/api/settings/stock').then(res => res.data)
-  });
-
-  const upsertMutation = useMutation({
-    mutationFn: (data: Partial<Filament>) => {
-      if (editingFilament) {
-        return api.put(`/api/filaments/${editingFilament.id}`, data);
-      }
-      return api.post('/api/filaments', data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['filaments'] });
-      queryClient.invalidateQueries({ queryKey: ['filament-types'] });
-      queryClient.invalidateQueries({ queryKey: ['filament-colors'] });
-      setIsFormOpen(false);
-      setEditingFilament(null);
-    }
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/filaments/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['filaments'] });
-      setIsDeleteOpen(false);
-      setDeletingFilament(null);
-    }
-  });
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number | 'all'>(20);
-
-  const filteredFilaments = useMemo(() => {
-    if (!filaments) return [];
-    return filaments.filter(f => {
-      const matchesSearch = f.name.toLowerCase().includes(search.toLowerCase());
-      const matchesType = typeFilter === 'all' || f.type_id?.toString() === typeFilter;
-      const matchesColor = colorFilter === 'all' || f.color_id?.toString() === colorFilter;
-      const matchesStatus = statusFilter === 'all' ||
-        (statusFilter === 'sealed' && !f.is_opened) ||
-        (statusFilter === 'opened' && f.is_opened);
-
-      return matchesSearch && matchesType && matchesColor && matchesStatus;
-    }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [filaments, search, typeFilter, colorFilter, statusFilter]);
-
-  const totalPages = useMemo(() => {
-    if (pageSize === 'all') return 1;
-    return Math.ceil(filteredFilaments.length / pageSize);
-  }, [filteredFilaments, pageSize]);
-
-  const paginatedFilaments = useMemo(() => {
-    if (pageSize === 'all') return filteredFilaments;
-    const start = (currentPage - 1) * pageSize;
-    return filteredFilaments.slice(start, start + pageSize);
-  }, [filteredFilaments, currentPage, pageSize]);
-
+  const totalPages = pageSize === 'all' ? 1 : Math.ceil(filteredFilaments.length / pageSize);
+  const paginatedFilaments = pageSize === 'all' ? filteredFilaments : filteredFilaments.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const clearFilters = () => {
-    setSearch('');
-    setTypeFilter('all');
-    setColorFilter('all');
-    setStatusFilter('all');
-    setCurrentPage(1);
+    setSearch(''); setTypeFilter('all'); setColorFilter('all'); setStatusFilter('all'); setCurrentPage(1);
+  };
+
+  const handleUpsert = async (data: Partial<Filament>) => {
+    if (editingFilament) await updateFilamentAsync({ id: editingFilament.id, data });
+    else await createFilamentAsync(data);
+    setIsFormOpen(false);
+    setEditingFilament(null);
+  };
+
+  const handleQuickAdjust = async (filament: Filament, deltaGrams: number) => {
+    const nextWeight = Math.max(0, Math.round((filament.remaining_weight_g + deltaGrams) * 10) / 10);
+    await updateFilamentAsync({ id: filament.id, data: { remaining_weight_g: nextWeight } });
+  };
+
+  const handleDelete = async () => {
+    if (!deletingFilament) return;
+    await deleteFilamentAsync(deletingFilament.id);
+    setIsDeleteOpen(false);
+    setDeletingFilament(null);
   };
 
   if (isLoading) return <StockSkeleton />;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            <PrivacyWrapper keyName="maskStockTitle" placeholder="•••••" inline>
-              Filament Stock
-            </PrivacyWrapper>
-          </h1>
-          <p className="text-muted-foreground">Manage your filament inventory and track usage.</p>
-        </div>
-        <div className="flex gap-2">
-          <Link to="/stock/settings">
-            <Button variant="outline" size="icon">
-              <Settings2 className="h-4 w-4" />
-            </Button>
-          </Link>
-          <Button onClick={() => { setEditingFilament(null); setIsFormOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" /> Add Filament
-          </Button>
-        </div>
-      </div>
-
-      <StockSummary filaments={filaments || []} />
-
+      <StockHeader onAddClick={() => { setEditingFilament(null); setIsFormOpen(true); }} />
+      <StockSummary filaments={filaments} />
       <FilamentSearchBar
         search={search}
-        setSearch={handleSearch}
+        setSearch={s => { setSearch(s); setCurrentPage(1); }}
         typeFilter={typeFilter}
-        setTypeFilter={handleType}
+        setTypeFilter={t => { setTypeFilter(t); setCurrentPage(1); }}
         colorFilter={colorFilter}
-        setColorFilter={handleColor}
+        setColorFilter={c => { setColorFilter(c); setCurrentPage(1); }}
         statusFilter={statusFilter}
-        setStatusFilter={handleStatus}
-        types={types || []}
-        colors={colors || []}
+        setStatusFilter={s => { setStatusFilter(s); setCurrentPage(1); }}
+        types={types}
+        colors={colors}
         clearFilters={clearFilters}
       />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {paginatedFilaments.map((filament) => (
-          <FilamentCard
-            key={filament.id}
-            filament={filament}
-            onEdit={(f) => { setEditingFilament(f); setIsFormOpen(true); }}
-            onDelete={(f) => { setDeletingFilament(f); setIsDeleteOpen(true); }}
-          />
-        ))}
-      </div>
-
-      {filteredFilaments.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Showing {paginatedFilaments.length} of {filteredFilaments.length} filaments</span>
-            <div className="flex items-center gap-1 ml-4">
-              <span>Show</span>
-              <select
-                value={pageSize}
-                onChange={(e) => handlePageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                className="bg-transparent border rounded px-1 py-0.5 text-sm outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value="all">All</option>
-              </select>
-              <span>per page</span>
-            </div>
-          </div>
-
-          {pageSize !== 'all' && totalPages > 1 && (
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <div className="flex items-center gap-1 px-4 text-sm font-medium">
-                Page {currentPage} of {totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {filteredFilaments.length === 0 && (
-        <div className="text-center py-20 border-2 border-dashed rounded-xl">
-          <p className="text-muted-foreground">No filaments found matching your filters.</p>
-          <Button variant="link" onClick={clearFilters}>Clear all filters</Button>
-        </div>
-      )}
-
+      <FilamentGridSection
+        paginatedFilaments={paginatedFilaments}
+        totalFiltered={filteredFilaments.length}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        slotByFilamentId={slotByFilamentId}
+        onEdit={f => { setEditingFilament(f); setIsFormOpen(true); }}
+        onDelete={f => { setDeletingFilament(f); setIsDeleteOpen(true); }}
+        onQuickAdjust={handleQuickAdjust}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={s => { setPageSize(s); setCurrentPage(1); }}
+        onClearFilters={clearFilters}
+      />
       <FilamentFormModal
-        key={editingFilament?.id ?? 'new'}
+        key={`${editingFilament?.id ?? 'new'}-${isFormOpen ? 'open' : 'closed'}-${stockSettings?.default_price_per_kg ?? 500}-${stockSettings?.default_weight_g ?? 1000}`}
         isOpen={isFormOpen}
         onClose={() => { setIsFormOpen(false); setEditingFilament(null); }}
-        onSubmit={(data) => upsertMutation.mutate(data)}
+        onSubmit={handleUpsert}
         initialData={editingFilament}
-        types={types || []}
-        colors={colors || []}
+        types={types}
+        colors={colors}
         stockSettings={stockSettings}
-        isPending={upsertMutation.isPending}
+        isPending={isUpserting}
       />
-
       <DeleteConfirmModal
         isOpen={isDeleteOpen}
         onClose={() => { setIsDeleteOpen(false); setDeletingFilament(null); }}
-        onConfirm={() => deletingFilament && deleteMutation.mutate(deletingFilament.id)}
+        onConfirm={handleDelete}
         filament={deletingFilament}
-        isPending={deleteMutation.isPending}
+        isPending={isDeleting}
       />
     </div>
   );

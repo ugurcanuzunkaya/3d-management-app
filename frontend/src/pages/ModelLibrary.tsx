@@ -1,203 +1,178 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Sparkles, Box } from 'lucide-react';
-import { modelsApi } from '@/api/models';
-import ModelCard from '@/components/models/ModelCard';
-import ModelFormModal from '@/components/models/ModelFormModal';
-import DeleteConfirmModal from '@/components/models/DeleteConfirmModal';
+import { Plus, Search, Box, Sparkles } from 'lucide-react';
 import type { Model3D } from '@/types';
-import { LibrarySkeleton } from '@/components/ui/Skeleton';
+import { useModels } from '@/hooks/use-models';
+import { ModelCard } from '@/components/models/ModelCard';
+import { ModelFormModal } from '@/components/models/ModelFormModal';
+import DeleteConfirmModal from '@/components/stock/DeleteConfirmModal';
+import { StockSkeleton } from '@/components/ui/Skeleton';
 import { PrivacyWrapper } from '@/components/shared/PrivacyWrapper';
 
+const EmptyModelsState = ({
+  hasSearch,
+  onClearSearch,
+  onAddNew,
+}: {
+  hasSearch: boolean;
+  onClearSearch: () => void;
+  onAddNew: () => void;
+}) => (
+  <div className="text-center py-24 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50/30 dark:bg-zinc-950/20">
+    <div className="bg-zinc-100 dark:bg-zinc-900 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-zinc-200 dark:border-zinc-800 shadow-inner">
+      <Box className="h-8 w-8 text-zinc-400" />
+    </div>
+    <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-1">No 3D Models Found</h3>
+    <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
+      {hasSearch
+        ? 'No models match your search query. Try a different keyword.'
+        : 'Your library is currently empty. Add your first model manually or let AI extract the details from a link or screenshot!'}
+    </p>
+    {hasSearch ? (
+      <Button variant="outline" onClick={onClearSearch}>Clear Search</Button>
+    ) : (
+      <Button onClick={onAddNew} className="bg-indigo-600 hover:bg-indigo-500 text-white">
+        <Sparkles className="h-4 w-4 mr-2" /> Add First Model with AI
+      </Button>
+    )}
+  </div>
+);
+
+const ModelLibraryHeader = ({
+  search,
+  setSearch,
+  count,
+  onAddNew,
+}: {
+  search: string;
+  setSearch: (v: string) => void;
+  count: number;
+  onAddNew: () => void;
+}) => (
+  <>
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+          <PrivacyWrapper keyName="maskModelsTitle" placeholder="•••••" inline>Model Library</PrivacyWrapper>
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <Sparkles className="w-3 h-3" /> AI Powered
+          </span>
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Organize your 3D models, track print metadata, and auto-scan details from MakerWorld or screenshots.
+        </p>
+      </div>
+      <Button onClick={onAddNew} className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 shrink-0">
+        <Plus className="h-4 w-4 mr-2" /> Add 3D Model
+      </Button>
+    </div>
+
+    <div className="flex items-center gap-3 bg-zinc-100/50 dark:bg-zinc-900/50 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800/80">
+      <div className="relative flex-1">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search models by name, material, or weight..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="pl-9 bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+        />
+      </div>
+      <div className="text-xs text-muted-foreground font-medium px-2 hidden sm:block">
+        {count} {count === 1 ? 'model' : 'models'}
+      </div>
+    </div>
+  </>
+);
+
 const ModelLibrary = () => {
-  const queryClient = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState('');
-
-  // Modals state
+  const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingModel, setEditingModel] = useState<Model3D | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<Model3D | null>(null);
+  const [deletingModel, setDeletingModel] = useState<Model3D | null>(null);
 
-  // Fetch models library
-  const { data: models = [], isLoading } = useQuery<Model3D[]>({
-    queryKey: ['models'],
-    queryFn: modelsApi.list,
-  });
+  const { models, isLoading, saveModelAsync, deleteModelAsync, isDeleting } = useModels();
 
-  // Create mutation
-  const createMutation = useMutation({
-    mutationFn: (data: Omit<Model3D, 'id'>) => modelsApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['models'] });
-      setIsFormOpen(false);
-    },
-  });
+  const filteredModels = useMemo(() => {
+    const q = search.toLowerCase();
+    return models
+      .filter(
+        m =>
+          m.name.toLowerCase().includes(q) ||
+          (m.tech_details?.filament_type || '').toLowerCase().includes(q) ||
+          String(m.estimated_weight_g || '').includes(q)
+      )
+      .sort((a, b) => b.id - a.id);
+  }, [models, search]);
 
-  // Update mutation
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Omit<Model3D, 'id'>> }) =>
-      modelsApi.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['models'] });
-      setIsFormOpen(false);
-    },
-  });
-
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => modelsApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['models'] });
-      setIsDeleteOpen(false);
-    },
-  });
-
-  const handleEditClick = (model: Model3D) => {
-    setSelectedModel(model);
+  const openAddNew = () => {
+    setEditingModel(null);
     setIsFormOpen(true);
   };
 
-  const handleDeleteClick = (model: Model3D) => {
-    setSelectedModel(model);
-    setIsDeleteOpen(true);
+  const handleSave = async (data: Omit<Model3D, 'id'> & { id?: number }) => {
+    await saveModelAsync(data);
+    setIsFormOpen(false);
+    setEditingModel(null);
   };
 
-  const handleAddNewClick = () => {
-    setSelectedModel(null);
-    setIsFormOpen(true);
+  const handleConfirmDelete = async () => {
+    if (!deletingModel) return;
+    await deleteModelAsync(deletingModel.id);
+    setIsDeleteOpen(false);
+    setDeletingModel(null);
   };
 
-  const handleSaveModel = async (formData: Omit<Model3D, 'id'> & { id?: number }) => {
-    if (formData.id) {
-      await updateMutation.mutateAsync({ id: formData.id, data: formData });
-    } else {
-      await createMutation.mutateAsync(formData);
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (selectedModel) {
-      await deleteMutation.mutateAsync(selectedModel.id);
-    }
-  };
-
-  // Filter models based on search term
-  const filteredModels = models.filter((model) => {
-    const term = searchTerm.toLowerCase();
-    const matchesName = model.name.toLowerCase().includes(term);
-    const matchesFilament = model.tech_details?.filament_type?.toLowerCase().includes(term);
-    return matchesName || matchesFilament;
-  });
-
-  if (isLoading) {
-    return <LibrarySkeleton />;
-  }
+  if (isLoading) return <StockSkeleton />;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 md:px-0">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            <PrivacyWrapper keyName="maskLibraryTitle" placeholder="•••••" inline>
-              Model Library
-            </PrivacyWrapper>
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Manage physical specifications, slicing parameters, and AI-scanned assets.
-          </p>
-        </div>
+    <div className="space-y-6 animate-fade-in pb-12">
+      <ModelLibraryHeader search={search} setSearch={setSearch} count={filteredModels.length} onAddNew={openAddNew} />
 
-        <Button
-          onClick={handleAddNewClick}
-          className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold flex items-center gap-1.5"
-        >
-          <Plus className="h-4 w-4" /> Add 3D Model
-        </Button>
-      </div>
-
-      {/* Control Panel: Search & Statistics */}
-      <div className="flex flex-col sm:flex-row items-center gap-4 justify-between">
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search models by name or material..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 text-sm"
-          />
-        </div>
-        <div className="flex items-center gap-6 text-xs text-muted-foreground shrink-0 border border-zinc-200 bg-white px-3 py-1.5 rounded-lg shadow-sm">
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-foreground text-sm">
-              <PrivacyWrapper keyName="maskLibraryStats" placeholder="••" inline>
-                {models.length}
-              </PrivacyWrapper>
-            </span>
-            <span>Total Models</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Models Grid */}
-      {filteredModels.length === 0 ? (
-        <div className="flex flex-col items-center justify-center border border-dashed border-zinc-200 rounded-xl p-12 text-center bg-zinc-50/50">
-          <div className="bg-zinc-100 p-3 rounded-full border border-zinc-200 mb-4">
-            <Box className="h-8 w-8 text-zinc-400" />
-          </div>
-          <h3 className="text-lg font-bold text-zinc-900">No 3D Models Found</h3>
-          <p className="text-zinc-500 text-sm mt-1 max-w-sm">
-            {searchTerm
-              ? "No models match your search criteria. Try a different query!"
-              : "Start by creating a model manually or scanning Makerworld/Printables via our AI Assistant Scanner!"}
-          </p>
-          {!searchTerm && (
-            <div className="mt-6 flex gap-3">
-              <Button
-                variant="outline"
-                onClick={handleAddNewClick}
-                className="border-zinc-200 hover:bg-zinc-50 font-medium text-zinc-700 bg-white shadow-sm"
-              >
-                <Plus className="h-4 w-4 mr-1.5" /> Manual Create
-              </Button>
-              <Button
-                onClick={handleAddNewClick}
-                className="bg-amber-600 hover:bg-amber-500 text-white font-medium shadow-md shadow-amber-500/10"
-              >
-                <Sparkles className="h-4 w-4 mr-1.5" /> Use AI Scanner
-              </Button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredModels.map((model) => (
+      {filteredModels.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredModels.map(model => (
             <ModelCard
               key={model.id}
               model={model}
-              onEdit={handleEditClick}
-              onDelete={handleDeleteClick}
+              onEdit={m => { setEditingModel(m); setIsFormOpen(true); }}
+              onDelete={m => { setDeletingModel(m); setIsDeleteOpen(true); }}
             />
           ))}
         </div>
+      ) : (
+        <EmptyModelsState hasSearch={Boolean(search)} onClearSearch={() => setSearch('')} onAddNew={openAddNew} />
       )}
 
-      {/* Create / Edit Form Modal */}
       <ModelFormModal
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onSave={handleSaveModel}
-        model={selectedModel}
+        onClose={() => { setIsFormOpen(false); setEditingModel(null); }}
+        onSave={handleSave}
+        model={editingModel}
       />
 
-      {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
         isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
-        onConfirm={handleDeleteConfirm}
-        model={selectedModel}
-        isPending={deleteMutation.isPending}
+        onClose={() => { setIsDeleteOpen(false); setDeletingModel(null); }}
+        onConfirm={handleConfirmDelete}
+        filament={
+          deletingModel
+            ? {
+                id: deletingModel.id,
+                name: deletingModel.name,
+                type_id: 0,
+                color_id: 0,
+                price_per_kg: 0,
+                remaining_weight_g: 0,
+                is_opened: false,
+                notes: null,
+                filament_type: null,
+                filament_color: null,
+              }
+            : null
+        }
+        isPending={isDeleting}
       />
     </div>
   );

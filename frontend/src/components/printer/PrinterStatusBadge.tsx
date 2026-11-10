@@ -8,24 +8,15 @@ interface PrinterStatusBadgeProps {
 }
 
 export const PrinterStatusBadge: React.FC<PrinterStatusBadgeProps> = ({ status, className }) => {
-  const getStatusConfig = (s: string) => {
-    const s_lower = s.toLowerCase();
-    if (s_lower === 'offline' || s_lower === 'disconnected') 
-      return { label: 'Offline', variant: 'destructive' as const };
-    if (s_lower === 'running' || s_lower === 'printing') 
-      return { label: 'Printing', variant: 'default' as const, className: 'bg-green-600 hover:bg-green-700' };
-    if (s_lower === 'finish' || s_lower === 'completed') 
-      return { label: 'Finished', variant: 'secondary' as const };
-    if (s_lower === 'idle') 
-      return { label: 'Idle', variant: 'outline' as const };
-    return { label: s || 'Unknown', variant: 'outline' as const };
-  };
-
-  const config = getStatusConfig(status);
-
-  return (
-    <Badge variant={config.variant} className={cn(config.className, className)}>
-      {config.label}
-    </Badge>
-  );
+  const sLower = status.toLowerCase();
+  if (sLower === 'offline' || sLower === 'disconnected') {
+    return <Badge variant="destructive" className={className}>Offline</Badge>;
+  }
+  if (sLower === 'running' || sLower === 'printing') {
+    return <Badge variant="default" className={cn('bg-green-600 hover:bg-green-700', className)}>Printing</Badge>;
+  }
+  if (sLower === 'finish' || sLower === 'completed') {
+    return <Badge variant="secondary" className={className}>Finished</Badge>;
+  }
+  return <Badge variant="outline" className={className}>{sLower === 'idle' ? 'Idle' : status || 'Unknown'}</Badge>;
 };
