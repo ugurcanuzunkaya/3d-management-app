@@ -258,3 +258,106 @@ def test_printer_offline_on_no_response(mqtt_service):
     status = conn.get_status()
     assert status["gcode_state"] == "IDLE"
     assert status["online"]["ahb"] is True
+
+
+def test_mqtt_rapid_delta_deep_merge_and_scoped_topic(mqtt_service):
+    import json
+    from types import SimpleNamespace
+
+    mqtt_service.register_printer(201, "192.168.1.201", "22E8BA572201450", "secret")
+    conn = mqtt_service.connections[201]
+
+    conn.on_connect(conn.client, None, None, 0)
+    conn.client.subscribe.assert_called_with("device/22E8BA572201450/report")
+
+    msg1 = SimpleNamespace(
+        payload=json.dumps(
+            {
+                "print": {
+                    "bed_temper": 55.0,
+                    "device": {"ctc": {"info": {"temp": 31}}},
+                }
+            }
+        ).encode()
+    )
+    msg2 = SimpleNamespace(
+        payload=json.dumps(
+            {
+                "print": {
+                    "nozzle_temper": 220.0,
+                    "device": {"ctc": {"state": 1}},
+                    "3D": {"layer_num": 14, "total_layer_num": 120},
+                }
+            }
+        ).encode()
+    )
+
+    conn.on_message(conn.client, None, msg1)
+    conn.on_message(conn.client, None, msg2)
+
+    status = conn.get_status()
+    assert status["bed_temper"] == 55.0
+    assert status["nozzle_temper"] == 220.0
+    assert status["chamber_temper"] == 31
+    assert status["layer_num"] == 14
+    assert status["total_layer_num"] == 120
+    assert status["device"]["ctc"]["info"]["temp"] == 31
+    assert status["device"]["ctc"]["state"] == 1
+
+
+def test_p2s_payload_normalization_from_dump(mqtt_service):
+    import json
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    dump_path = Path(__file__).resolve().parent.parent / "printer_data_dump.json"
+    raw_dump = json.loads(dump_path.read_text())
+
+    mqtt_service.register_printer(202, "192.168.1.202", "22E8BA572201450", "secret")
+    conn = mqtt_service.connections[202]
+
+    for packet in raw_dump:
+        msg = SimpleNamespace(payload=json.dumps(packet["payload"]).encode())
+        conn.on_message(conn.client, None, msg)
+
+    status = conn.get_status()
+    assert status["chamber_temper"] == 31
+    assert status["ams"]["ams"][0]["humidity_raw"] == "35"
+    assert len(status["ams"]["ams"][0]["tray"]) == 4
+
+
+def test_printer_access_code_masked_and_preserved_on_update(client, test_db_session):
+    payload = {
+        "name": "Bambu Lab P2S",
+        "ip_address": "192.168.1.50",
+        "serial_number": "22E8BA572201450",
+        "access_code": "real_secret_code",
+        "is_active": True,
+    }
+    res = client.post("/api/printer", json=payload)
+    assert res.status_code == 201
+    created = res.json()
+    printer_id = created["id"]
+    assert created["access_code"] == "********"
+
+    list_res = client.get("/api/printer")
+    assert list_res.status_code == 200
+    assert list_res.json()[0]["access_code"] == "********"
+
+    # Update printer sending masked access_code -> DB must preserve real_secret_code
+    update_res = client.put(
+        f"/api/printer/{printer_id}",
+        json={
+            "name": "Bambu Lab P2S Pro",
+            "ip_address": "192.168.1.50",
+            "serial_number": "22E8BA572201450",
+            "access_code": "********",
+            "is_active": True,
+        },
+    )
+    assert update_res.status_code == 200
+    assert update_res.json()["access_code"] == "********"
+
+    db_printer = test_db_session.get(Printer, printer_id)
+    assert db_printer is not None
+    assert db_printer.access_code == "real_secret_code"

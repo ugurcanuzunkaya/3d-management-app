@@ -1,6 +1,6 @@
 import pytest
 from sqlmodel import SQLModel, create_engine, Session, select
-from app.models import Filament, FilamentSeries, Settings
+from app.models import Filament, Settings
 
 
 @pytest.fixture(name="session")
@@ -22,11 +22,7 @@ def test_create_settings(session: Session):
     assert db_settings.fallback_wattage == 400.0
 
 
-def test_create_filament_with_series(session: Session):
-    series = FilamentSeries(name="Test Series", nozzle_temp="200", bed_temp="60")
-    session.add(series)
-    session.commit()
-
+def test_create_filament_with_type_and_color(session: Session):
     from app.models import FilamentType, FilamentColor
 
     f_type = FilamentType(name="PLA")
@@ -37,7 +33,6 @@ def test_create_filament_with_series(session: Session):
 
     filament = Filament(
         name="Test Filament",
-        series_id=series.id,
         type_id=f_type.id,
         color_id=color.id,
         price_per_kg=100.0,
@@ -50,6 +45,49 @@ def test_create_filament_with_series(session: Session):
         select(Filament).where(Filament.name == "Test Filament")
     ).first()
     assert db_filament is not None
-    assert db_filament.series is not None
-    assert db_filament.series.name == "Test Series"
+    assert db_filament.filament_type is not None
+    assert db_filament.filament_type.name == "PLA"
     assert db_filament.remaining_weight_g == 500.0
+
+
+def test_filament_brand_and_tare_fields_with_clamping(session: Session):
+    from app.models import FilamentType, FilamentColor
+    from app.schemas.filament import FilamentCreate, FilamentUpdate
+    from app.services.filament_service import FilamentService
+
+    f_type = FilamentType(name="PETG")
+    color = FilamentColor(name="Black", hex_code="#111111")
+    session.add_all([f_type, color])
+    session.commit()
+    session.refresh(f_type)
+    session.refresh(color)
+    assert f_type.id is not None
+    assert color.id is not None
+
+    created = FilamentService.create_filament(
+        session,
+        FilamentCreate(
+            name="eSUN PETG Black",
+            brand="eSUN",
+            type_id=f_type.id,
+            color_id=color.id,
+            price_per_kg=650.0,
+            initial_weight_g=1000.0,
+            empty_spool_weight_g=210.0,
+            remaining_weight_g=790.0,
+            is_opened=True,
+        ),
+    )
+    assert created.id is not None
+    assert created.brand == "eSUN"
+    assert created.initial_weight_g == 1000.0
+    assert created.empty_spool_weight_g == 210.0
+    assert created.remaining_weight_g == 790.0
+
+    # Updating remaining_weight_g below 0 clamps to 0.0
+    updated = FilamentService.update_filament(
+        session,
+        created.id,
+        FilamentUpdate(remaining_weight_g=-45.0),
+    )
+    assert updated.remaining_weight_g == 0.0

@@ -1,10 +1,33 @@
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
+from sqlmodel import SQLModel, Session, create_engine
 from app.main import app
+from app.dependencies import get_session
 
-client = TestClient(app)
+
+@pytest.fixture(name="client")
+def client_fixture():
+    from unittest.mock import patch
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with (
+        patch("paho.mqtt.client.Client"),
+        patch("app.main.engine", engine),
+        Session(engine) as session,
+    ):
+        app.dependency_overrides[get_session] = lambda: session
+        with TestClient(app) as test_client:
+            yield test_client
+    app.dependency_overrides.clear()
 
 
-def test_privacy_presets_lifecycle():
+def test_privacy_presets_lifecycle(client: TestClient):
     # 1. List presets (should be empty or have some pre-existing ones)
     response = client.get("/api/privacy-presets", params={"page_path": "/dashboard"})
     assert response.status_code == 200

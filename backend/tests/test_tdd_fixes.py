@@ -7,7 +7,6 @@ from app.services.mqtt_service import BambuMQTTService
 from app.services.job_service import JobService
 from app.models import (
     Filament,
-    FilamentSeries,
     FilamentType,
     FilamentColor,
     PrintJob,
@@ -56,11 +55,9 @@ def test_ai_service_methods_are_async(ai_service):
 
 # 3. SQL N+1 Query Check for Job Bulk Delete
 def test_delete_all_jobs_n_plus_one(session: Session):
-    # Seed type, color, series
-    series = FilamentSeries(name="Test Series", nozzle_temp="200", bed_temp="60")
+    # Seed type, color
     f_type = FilamentType(name="PLA")
     color = FilamentColor(name="Red")
-    session.add(series)
     session.add(f_type)
     session.add(color)
     session.commit()
@@ -69,7 +66,6 @@ def test_delete_all_jobs_n_plus_one(session: Session):
     filaments = [
         Filament(
             name=f"F{i}",
-            series_id=series.id,
             type_id=f_type.id,
             color_id=color.id,
             price_per_kg=100.0,
@@ -139,3 +135,113 @@ def test_mqtt_status_timestamp():
 
         status = service.get_status(1)
         assert status.get("last_updated") == fake_timestamp
+
+
+@pytest.mark.anyio
+async def test_lifespan_initializes_fresh_uninitialized_db():
+    from sqlalchemy.pool import StaticPool
+    from sqlalchemy import inspect
+    from app.main import app, lifespan
+
+    fresh_engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    with patch("paho.mqtt.client.Client"):
+        mqtt_svc = BambuMQTTService()
+        with (
+            patch("app.main.engine", fresh_engine),
+            patch("app.database.engine", fresh_engine),
+            patch("app.main.get_mqtt_service", return_value=mqtt_svc),
+        ):
+            async with lifespan(app):
+                tables = inspect(fresh_engine).get_table_names()
+                assert "printer" in tables
+                assert "filament" in tables
+
+
+@pytest.mark.anyio
+async def test_ai_service_uses_gemini_3_8_flash():
+    from unittest.mock import AsyncMock, MagicMock
+
+    settings = AppSettings(gemini_api_key="fake-key")
+    with (
+        patch("app.services.ai_service.FirecrawlApp"),
+        patch("app.services.ai_service.genai.Client") as mock_genai_cls,
+    ):
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.text = '{"name": "Bench", "weight_g": 15.0, "filament_type": "PLA", "print_time_minutes": 45, "nozzle_temp": 210, "bed_temp": 60, "dimensions": null, "tech_details": {}}'
+        mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+        mock_genai_cls.return_value = mock_client
+
+        service = AIService(settings)
+        res = await service.extract_tech_params_from_text(
+            "Bench 15g PLA", provider="gemini"
+        )
+        assert res.name == "Bench"
+        call_kwargs = mock_client.aio.models.generate_content.call_args.kwargs
+        assert call_kwargs["model"] == "gemini-3.8-flash"
+
+
+def test_no_type_ignore_in_main_or_printer_router():
+    import app.main as main_mod
+    import app.routers.printer as printer_mod
+
+    assert "# type: ignore" not in inspect.getsource(main_mod)
+    assert "# type: ignore" not in inspect.getsource(printer_mod)
+
+
+def test_init_db_adds_missing_sqlite_columns_to_existing_tables():
+    from sqlalchemy.pool import StaticPool
+    from sqlalchemy import inspect, text
+    import app.database as db_mod
+
+    legacy_engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    with legacy_engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE filament (id INTEGER PRIMARY KEY, name VARCHAR, price_per_kg FLOAT, remaining_weight_g FLOAT, is_opened BOOLEAN)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE TABLE printjob (id INTEGER PRIMARY KEY, name VARCHAR, job_type VARCHAR, duration_minutes INTEGER, total_cost FLOAT, production_cost FLOAT)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE TABLE settings (id INTEGER PRIMARY KEY, electric_price FLOAT, fallback_wattage FLOAT)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE TABLE stocksettings (id INTEGER PRIMARY KEY, default_price_per_kg FLOAT, default_weight_g FLOAT)"
+            )
+        )
+
+    with patch.object(db_mod, "engine", legacy_engine):
+        db_mod.init_db()
+
+    insp = inspect(legacy_engine)
+    filament_cols = {c["name"] for c in insp.get_columns("filament")}
+    assert {"brand", "initial_weight_g", "empty_spool_weight_g"}.issubset(filament_cols)
+
+    job_cols = {c["name"] for c in insp.get_columns("printjob")}
+    assert {"printer_id", "external_job_id", "status"}.issubset(job_cols)
+
+    settings_cols = {c["name"] for c in insp.get_columns("settings")}
+    assert {
+        "markup_multiplier",
+        "machine_hourly_rate",
+        "failure_rate_pct",
+        "currency",
+    }.issubset(settings_cols)
+
+    stock_cols = {c["name"] for c in insp.get_columns("stocksettings")}
+    assert "low_stock_threshold" in stock_cols
