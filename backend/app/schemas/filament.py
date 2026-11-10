@@ -37,10 +37,12 @@ class FilamentColorRead(SQLModel):
 
 class FilamentCreate(SQLModel):
     name: str
+    brand: Optional[str] = None
     type_id: int
     color_id: int
-    series_id: Optional[int] = None
     price_per_kg: float = 500.0
+    initial_weight_g: float = 1000.0
+    empty_spool_weight_g: float = 200.0
     remaining_weight_g: float = 1000.0
     is_opened: bool = False
     notes: Optional[str] = None
@@ -48,10 +50,12 @@ class FilamentCreate(SQLModel):
 
 class FilamentUpdate(SQLModel):
     name: Optional[str] = None
+    brand: Optional[str] = None
     type_id: Optional[int] = None
     color_id: Optional[int] = None
-    series_id: Optional[int] = None
     price_per_kg: Optional[float] = None
+    initial_weight_g: Optional[float] = None
+    empty_spool_weight_g: Optional[float] = None
     remaining_weight_g: Optional[float] = None
     is_opened: Optional[bool] = None
     notes: Optional[str] = None
@@ -60,11 +64,13 @@ class FilamentUpdate(SQLModel):
 class FilamentRead(SQLModel):
     id: int
     name: str
+    brand: Optional[str] = None
     price_per_kg: float
+    initial_weight_g: float = 1000.0
+    empty_spool_weight_g: float = 200.0
     remaining_weight_g: float
     is_opened: bool
     notes: Optional[str]
-    series_id: Optional[int]
     type_id: Optional[int]
     color_id: Optional[int]
     filament_type: Optional[FilamentTypeRead] = None

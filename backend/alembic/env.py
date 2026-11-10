@@ -10,7 +10,9 @@ from sqlmodel import SQLModel
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.config import get_settings
-from app.models import *  # noqa: F403 # Ensure all models are registered with SQLModel.metadata
+from app import models as _models
+
+_ = _models.__all__
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

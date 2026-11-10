@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
-from app.database import engine
+from app.database import engine, init_db
 from app.models import Printer
 from app.config import get_settings
 from app.dependencies import get_mqtt_service
@@ -29,6 +29,7 @@ async def lifespan(app: FastAPI):
     mqtt_service = get_mqtt_service()
     polling_task = None
     try:
+        init_db()
         # Load printers on startup
         settings = get_settings()
         with Session(engine) as session:
@@ -53,9 +54,9 @@ async def lifespan(app: FastAPI):
 
             # Register all active printers in the MQTT service
             for p in printers:
-                if p.is_active:
+                if p.is_active and p.id is not None:
                     mqtt_service.register_printer(
-                        printer_id=p.id,  # type: ignore
+                        printer_id=p.id,
                         host=p.ip_address,
                         serial=p.serial_number,
                         access_code=p.access_code,

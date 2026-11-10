@@ -3,7 +3,6 @@ import os
 from sqlmodel import Session, select
 from .database import engine, init_db
 from .models import (
-    FilamentSeries,
     Filament,
     Settings,
     FilamentType,
@@ -65,6 +64,7 @@ def seed_data():
         session.commit()
 
         # 4. Seed Types (from series names)
+        series_name_by_id = {spec["id"]: spec["name"] for spec in data["series_specs"]}
         for spec in data["series_specs"]:
             f_type = session.exec(
                 select(FilamentType).where(FilamentType.name == spec["name"])
@@ -74,23 +74,7 @@ def seed_data():
                 session.add(f_type)
         session.commit()
 
-        # 5. Seed Series
-        for spec in data["series_specs"]:
-            series = session.exec(
-                select(FilamentSeries).where(FilamentSeries.id == spec["id"])
-            ).first()
-            if not series:
-                series = FilamentSeries(
-                    id=spec["id"],
-                    name=spec["name"],
-                    nozzle_temp=spec.get("Yazdırma Sıcaklığı", "200-230 °C"),
-                    bed_temp=spec.get("Tabla Sıcaklığı", "0-60 °C"),
-                    other_specs=spec,
-                )
-                session.add(series)
-        session.commit()
-
-        # 6. Seed Inventory
+        # 5. Seed Inventory
         for item in data["inventory"]:
             filament = session.exec(
                 select(Filament).where(Filament.id == item["id"])
@@ -116,21 +100,18 @@ def seed_data():
                     ).first()
                     found_color_id = black.id if black else None
 
-                # Find matching type (via series)
-                series_obj = session.exec(
-                    select(FilamentSeries).where(FilamentSeries.id == item["series_id"])
-                ).first()
+                # Find matching type
+                series_name = series_name_by_id.get(item["series_id"])
                 type_id = None
-                if series_obj:
+                if series_name:
                     type_obj = session.exec(
-                        select(FilamentType).where(FilamentType.name == series_obj.name)
+                        select(FilamentType).where(FilamentType.name == series_name)
                     ).first()
                     type_id = type_obj.id if type_obj else None
 
                 filament = Filament(
                     id=item["id"],
                     name=item["name"],
-                    series_id=item["series_id"],
                     type_id=type_id,
                     color_id=found_color_id,
                     price_per_kg=500.0,
@@ -149,7 +130,6 @@ def seed_data():
                 "filamenttype",
                 "filamentcolor",
                 "stocksettings",
-                "filamentseries",
                 "model3d",
                 "printjob",
             ]:

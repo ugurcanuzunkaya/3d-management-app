@@ -15,6 +15,8 @@ class PrintJob(SQLModel, table=True):
     name: str = Field(index=True)
     job_type: str = Field(default="Generic")
     model_id: Optional[int] = Field(default=None, foreign_key="model3d.id")
+    printer_id: Optional[int] = Field(default=None, foreign_key="printer.id")
+    external_job_id: Optional[str] = Field(default=None, index=True)
     duration_minutes: int = Field(default=0)
     total_cost: float = Field(default=0.0)  # This is the sales price
     production_cost: float = Field(default=0.0)
