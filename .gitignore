@@ -257,6 +257,12 @@ backend/stock_data.json
 
 # Local DB
 backend/3d_management.db
+*.db-shm
+*.db-wal
+
+# Graphify output
+.graphifyignore
+graphify-out/
 
 # Linting
 frontend/lint_output.txt

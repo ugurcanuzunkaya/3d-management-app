@@ -9,6 +9,18 @@ const __dirname = path.dirname(__filename)
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@tanstack/react-query',
+      'axios',
+      'lucide-react',
+      'clsx',
+      'tailwind-merge',
+    ],
+  },
   resolve: {
     alias: [
       { find: '@', replacement: path.resolve(__dirname, 'src') },
