@@ -9,6 +9,10 @@ export const jobsApi = {
     const response = await api.put(`/api/printjobs/${id}`, job);
     return response.data;
   },
+  approve: async (id: number, data?: Partial<PrintJobCreate>): Promise<PrintJob> => {
+    const response = await api.post(`/api/printjobs/${id}/approve`, data ?? {});
+    return response.data;
+  },
   delete: async (id: number): Promise<void> => {
     await api.delete(`/api/printjobs/${id}`);
   },

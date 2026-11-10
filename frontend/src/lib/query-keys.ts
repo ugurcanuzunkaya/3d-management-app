@@ -1,22 +1,14 @@
 export const queryKeys = {
-  filaments: {
-    all: ['filaments'] as const,
-    list: () => [...queryKeys.filaments.all, 'list'] as const,
-    types: ['filament-types'] as const,
-    colors: ['filament-colors'] as const,
-  },
-  jobs: {
-    all: ['jobs'] as const,
-    list: (status?: string) => [...queryKeys.jobs.all, 'list', { status }] as const,
-  },
-  printer: {
-    status: ['printer-status'] as const,
-  },
-  settings: {
-    app: ['settings'] as const,
-    stock: ['stock-settings'] as const,
-  },
-  models: {
-    all: ['models'] as const,
-  },
+  filaments: ['filaments'] as const,
+  filamentTypes: ['filament-types'] as const,
+  colors: ['filament-colors'] as const,
+  jobs: (status?: string) => (status ? (['jobs', status] as const) : (['jobs'] as const)),
+  models: ['models'] as const,
+  ollamaModels: ['ollama-models'] as const,
+  printers: ['printers'] as const,
+  printerStatuses: ['printer-statuses'] as const,
+  printerStatus: (id?: number) => (id !== undefined ? (['printer-status', id] as const) : (['printer-status'] as const)),
+  printerSlots: (id?: number) => (id !== undefined ? (['printer-slots', id] as const) : (['printer-slots'] as const)),
+  settings: ['settings'] as const,
+  stockSettings: ['stock-settings'] as const,
 };

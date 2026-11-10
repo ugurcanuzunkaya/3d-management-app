@@ -9,6 +9,9 @@ export interface PrintJob {
   id: number;
   name: string;
   job_type: string;
+  model_id?: number | null;
+  printer_id?: number | null;
+  external_job_id?: string | null;
   duration_minutes: number;
   total_cost: number;
   production_cost: number;
@@ -22,8 +25,11 @@ export interface PrintJobCreate {
   name: string;
   job_type: string;
   model_id?: number | null;
+  printer_id?: number | null;
+  external_job_id?: string | null;
   duration_minutes: number;
   total_cost: number;
   production_cost: number;
+  status?: string;
   filaments: JobFilament[];
 }

@@ -13,10 +13,12 @@ export interface FilamentColor {
 export interface Filament {
   id: number;
   name: string;
+  brand?: string | null;
   type_id: number | null;
   color_id: number | null;
-  series_id: number | null;
   price_per_kg: number;
+  initial_weight_g?: number;
+  empty_spool_weight_g?: number;
   remaining_weight_g: number;
   is_opened: boolean;
   notes: string | null;

@@ -1,10 +1,20 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, ClipboardList, Library, Box, Settings, Activity, Eye, EyeOff, Sliders } from 'lucide-react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { PrivacyWrapper } from '@/components/shared/PrivacyWrapper';
 
+const NAV_ITEMS = [
+  { to: '/', label: 'Dashboard', keyName: 'maskNavDashboard', Icon: LayoutDashboard },
+  { to: '/jobs', label: 'Jobs', keyName: 'maskNavJobs', Icon: ClipboardList },
+  { to: '/stock', label: 'Stock', keyName: 'maskNavStock', Icon: Box },
+  { to: '/models', label: 'Models', keyName: 'maskNavModels', Icon: Library },
+  { to: '/printer', label: 'Printer', keyName: 'maskNavPrinter', Icon: Activity },
+  { to: '/settings', label: 'Settings', keyName: 'maskNavSettings', Icon: Settings },
+] as const;
+
 const Navbar = () => {
   const { showPersonalInfo, togglePersonalInfo, isEditMode, toggleEditMode } = usePrivacy();
+  const { pathname } = useLocation();
 
   return (
     <nav className="border-b bg-white dark:bg-zinc-950 sticky top-0 z-40 border-zinc-200 dark:border-zinc-800">
@@ -16,42 +26,25 @@ const Navbar = () => {
           </PrivacyWrapper>
         </div>
         <div className="flex items-center gap-6 text-zinc-700 dark:text-zinc-300">
-          <Link to="/" className="flex items-center gap-1 hover:text-primary transition-colors">
-            <LayoutDashboard className="w-4 h-4" />
-            <PrivacyWrapper keyName="maskNavDashboard" placeholder="•••••" inline>
-              Dashboard
-            </PrivacyWrapper>
-          </Link>
-          <Link to="/jobs" className="flex items-center gap-1 hover:text-primary transition-colors">
-            <ClipboardList className="w-4 h-4" />
-            <PrivacyWrapper keyName="maskNavJobs" placeholder="•••••" inline>
-              Jobs
-            </PrivacyWrapper>
-          </Link>
-          <Link to="/stock" className="flex items-center gap-1 hover:text-primary transition-colors">
-            <Box className="w-4 h-4" />
-            <PrivacyWrapper keyName="maskNavStock" placeholder="•••••" inline>
-              Stock
-            </PrivacyWrapper>
-          </Link>
-          <Link to="/models" className="flex items-center gap-1 hover:text-primary transition-colors">
-            <Library className="w-4 h-4" />
-            <PrivacyWrapper keyName="maskNavModels" placeholder="•••••" inline>
-              Models
-            </PrivacyWrapper>
-          </Link>
-          <Link to="/printer" className="flex items-center gap-1 hover:text-primary transition-colors">
-            <Activity className="w-4 h-4" />
-            <PrivacyWrapper keyName="maskNavPrinter" placeholder="•••••" inline>
-              Printer
-            </PrivacyWrapper>
-          </Link>
-          <Link to="/settings" className="flex items-center gap-1 hover:text-primary transition-colors">
-            <Settings className="w-4 h-4" />
-            <PrivacyWrapper keyName="maskNavSettings" placeholder="•••••" inline>
-              Settings
-            </PrivacyWrapper>
-          </Link>
+          {NAV_ITEMS.map(({ to, label, keyName, Icon }) => {
+            const isActive = to === '/' ? pathname === '/' : pathname.startsWith(to);
+            return (
+              <Link
+                key={to}
+                to={to}
+                className={`flex items-center gap-1.5 text-sm transition-colors ${
+                  isActive
+                    ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+                    : 'hover:text-primary'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <PrivacyWrapper keyName={keyName} placeholder="•••••" inline>
+                  {label}
+                </PrivacyWrapper>
+              </Link>
+            );
+          })}
           
           <div className="flex items-center gap-1">
             <button

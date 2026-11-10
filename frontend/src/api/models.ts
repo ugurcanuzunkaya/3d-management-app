@@ -3,6 +3,7 @@ import type { Model3D, ModelExtractionResult } from '@/types';
 
 export const modelsApi = {
   list: () => api.get<Model3D[]>('/api/models').then(res => res.data),
+  listOllamaModels: () => api.get<string[]>('/api/models/ollama-models').then(res => res.data),
   get: (id: number) => api.get<Model3D>(`/api/models/${id}`).then(res => res.data),
   create: (data: Omit<Model3D, 'id' | 'tech_details'> & { tech_details: Record<string, unknown> }) =>
     api.post<Model3D>('/api/models', data).then(res => res.data),
